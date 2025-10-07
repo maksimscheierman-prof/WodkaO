@@ -90,6 +90,9 @@ export default function Lobby() {
         discardPile: [],
         round: 1,
         effectsUsed: {},
+        showMagic: true, // Karte wird angezeigt
+        reactions: { [playerName]: { done: false } }, // wer hat reagiert
+        reactingPlayers: [], // alle, die noch reagieren müssen (optional)
       };
 
       await setDoc(doc(db, "lobbies", code), lobbyData);
@@ -197,6 +200,9 @@ export default function Lobby() {
         round: 1,
         effectsUsed: {},
         lastMagic: null,
+        showMagic: true, // Karte wird angezeigt
+        reactions: { [playerName]: { done: false } }, // wer hat reagiert
+        reactingPlayers: [], // alle, die noch reagieren müssen (optional)
       });
 
       console.log("[START GAME] Host startet Spiel.");

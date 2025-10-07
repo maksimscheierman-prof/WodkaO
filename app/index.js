@@ -58,7 +58,7 @@ export default function Index() {
       style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
     >
       <Text style={{ fontSize: 28, color: "#fff", marginBottom: 20 }}>
-        🔥 Yu-Gi-Oh! Trinkspiel
+        🔥 Vod-ka-Oh! Trinkspiel
       </Text>
 
       {/* Firestore Status */}
