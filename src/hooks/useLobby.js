@@ -2,6 +2,7 @@
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { db } from "../../firebaseConfig";
+import { DEFAULT_TIMERS } from "../config/timers";
 
 export function useLobby(lobbyId) {
   const [lobby, setLobby] = useState(null);
@@ -25,6 +26,12 @@ export function useLobby(lobbyId) {
           votes: data.votes ?? { ja: [], nein: [] },
           votingOpen: data.votingOpen ?? false,
           reactions: data.reactions ?? {},
+          timers: { ...DEFAULT_TIMERS, ...(data.timers || {}) },
+          reactionsStartedAt: data.reactionsStartedAt ?? null,
+          votingStartedAt: data.votingStartedAt ?? null,
+          resultStartedAt: data.resultStartedAt ?? null,
+          discardStartedAt: data.discardStartedAt ?? null,
+          resultAcks: data.resultAcks ?? {},
         });
       }
     });

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Modal, Text, TouchableOpacity, View } from "react-native";
+import { getTimers } from "../config/timers";
 import Card from "./Card";
 
 export default function MagicCardModal({
@@ -22,10 +23,10 @@ export default function MagicCardModal({
   const isMagic = (t) => typeof t === "string" && t.toLowerCase() === "magic";
 
   const [trapRevealed, setTrapRevealed] = useState(false);
-  const tick = useRef(null);
 
   const useCountdown = (startMs, durationSec, active) => {
     const [left, setLeft] = useState(durationSec);
+
     useEffect(() => {
       if (!active || !startMs) {
         setLeft(durationSec);
@@ -36,12 +37,10 @@ export default function MagicCardModal({
         setLeft(Math.max(0, durationSec - elapsed));
       };
       update();
-      tick.current && clearInterval(tick.current);
-      tick.current = setInterval(update, 250);
-      return () => {
-        tick.current && clearInterval(tick.current);
-      };
+      const id = setInterval(update, 1000); // eigener Intervall pro Hook
+      return () => clearInterval(id);
     }, [startMs, durationSec, active]);
+
     return left;
   };
 
@@ -67,14 +66,68 @@ export default function MagicCardModal({
   const card = selectedIsMagic ? selectedCard : magicFromLobby;
 
   //Flags
+  const timers = getTimers(lobby);
   const isVoting = !!(lobby?.activeEffect && lobby?.votingOpen);
   const hasResult = !!(!lobby?.votingOpen && lobby?.voteResult);
   const inReaction = !!(lobby?.showMagic && !isVoting && !hasResult);
 
-  // Restzeiten
-  const voteLeft = useCountdown(lobby?.votingStartedAt, 30, isVoting);
-  const ackLeft = useCountdown(lobby?.resultStartedAt, 10, hasResult);
-  const reactLeft = useCountdown(lobby?.reactionsStartedAt, 60, inReaction);
+  // Countdowns
+  const voteLeft = useCountdown(
+    lobby?.votingStartedAt,
+    timers.votingSeconds,
+    isVoting
+  );
+  const ackLeft = useCountdown(
+    lobby?.resultStartedAt,
+    timers.ackSeconds,
+    hasResult
+  );
+  const reactLeft = useCountdown(
+    lobby?.reactionsStartedAt,
+    timers.reactionSeconds,
+    inReaction
+  );
+  const discardLeft = useCountdown(
+    lobby?.discardStartedAt,
+    timers.discardSeconds,
+    isMyTurn &&
+      lobby?.allReactionsDone &&
+      !!lobby?.lastMagic &&
+      lobby?.showMagic &&
+      !isVoting &&
+      !hasResult
+  );
+
+  // Auto-Aktionen:
+  useEffect(() => {
+    if (isVoting && voteLeft === 0) {
+      const voted =
+        (lobby?.votes?.ja || []).includes(me.name) ||
+        (lobby?.votes?.nein || []).includes(me.name);
+      if (!voted) handleVote("ja");
+    }
+  }, [isVoting, voteLeft]);
+
+  useEffect(() => {
+    if (hasResult && ackLeft === 0 && !lobby?.resultAcks?.[me.name]) {
+      onResultOk(me.name);
+    }
+  }, [hasResult, ackLeft]);
+
+  useEffect(() => {
+    if (!isMyTurn) return;
+    if (!lobby?.allReactionsDone) return;
+    if (isVoting || hasResult) return; // kein Discard, wenn Voting/Ergebnis offen
+    if (!lobby?.lastMagic) return;
+    if (discardLeft === 0) handleDiscard(); // automatisch ablegen
+  }, [
+    isMyTurn,
+    lobby?.allReactionsDone,
+    isVoting,
+    hasResult,
+    discardLeft,
+    lobby?.lastMagic,
+  ]);
 
   // Auto: Voting → JA nach 30s
   useEffect(() => {
@@ -137,6 +190,10 @@ export default function MagicCardModal({
                 marginHorizontal: 10,
               }}
             >
+              <Text style={{ color: "#bbb", marginTop: 8 }}>
+                Auto-Ja in {fmt(voteLeft)}
+              </Text>
+
               <Text style={{ color: "#fff" }}>Ja ✅</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -209,9 +266,17 @@ export default function MagicCardModal({
               }}
             >
               <Text style={{ color: "#000" }}>OK</Text>
+              <Text style={{ color: "#bbb", marginTop: 8 }}>
+                Auto-Ja in {fmt(voteLeft)}
+              </Text>
             </TouchableOpacity>
           ) : (
             <Text style={{ color: "#9f9", marginTop: 16 }}>✔️ Bestätigt</Text>
+          )}
+          {!acks[me.name] && (
+            <Text style={{ color: "#bbb", marginTop: 8 }}>
+              Automatisch OK in {fmt(ackLeft)}
+            </Text>
           )}
         </View>
       </Modal>
@@ -429,6 +494,9 @@ export default function MagicCardModal({
                   }}
                 >
                   <Text>✅ Done</Text>
+                  <Text style={{ color: "#bbb", marginTop: 8 }}>
+                    Automatisch Done in {fmt(reactLeft)}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -459,6 +527,11 @@ export default function MagicCardModal({
                 }}
               >
                 <Text>🗑️ Magiekarte ablegen</Text>
+                {isMyTurn && lobby?.allReactionsDone && (
+                  <Text style={{ color: "#bbb", marginTop: 8 }}>
+                    Automatisch ablegen in {fmt(discardLeft)}
+                  </Text>
+                )}
               </TouchableOpacity>
             )}
           </>

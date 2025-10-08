@@ -4,6 +4,7 @@ import { doc, getDoc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { db } from "../firebaseConfig";
+import { DEFAULT_TIMERS, EMPTY_TIMER_STARTS } from "../src/config/timers";
 import { randomMonster, randomTrap } from "../src/utils/gameLogic";
 
 const random = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -93,6 +94,10 @@ export default function Lobby() {
         showMagic: true, // Karte wird angezeigt
         reactions: { [playerName]: { done: false } }, // wer hat reagiert
         reactingPlayers: [], // alle, die noch reagieren müssen (optional)
+
+        // ✅ Timer-Config und Startpunkte
+        timers: DEFAULT_TIMERS,
+        ...EMPTY_TIMER_STARTS,
       };
 
       await setDoc(doc(db, "lobbies", code), lobbyData);
@@ -133,6 +138,9 @@ export default function Lobby() {
         });
         setLobbyId(code);
         return;
+      }
+      if (!data.timers) {
+        await updateDoc(ref, { timers: DEFAULT_TIMERS });
       }
 
       const newPlayer = {
@@ -203,9 +211,14 @@ export default function Lobby() {
         showMagic: true, // Karte wird angezeigt
         reactions: { [playerName]: { done: false } }, // wer hat reagiert
         reactingPlayers: [], // alle, die noch reagieren müssen (optional)
+
+        // ✅ Timer-Config sicher vorhanden lassen
+        timers: data.timers || DEFAULT_TIMERS,
+
+        // ✅ Timer-Startpunkte resetten
+        ...EMPTY_TIMER_STARTS,
       });
 
-      console.log("[START GAME] Host startet Spiel.");
       router.replace({ pathname: "/game", params: { lobbyId, playerName } });
     } catch (error) {
       console.error("Start Game Error:", error);

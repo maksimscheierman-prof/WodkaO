@@ -1,5 +1,6 @@
 // src/utils/gameActions.js
 import { updateDoc } from "firebase/firestore";
+import { EMPTY_TIMER_STARTS } from "../config/timers";
 import { randomMagic } from "./gameLogic";
 
 /* --------------------------------
@@ -23,9 +24,7 @@ export const handleDraw = async (lobbyRef, setSelectedCard) => {
       allReactionsDone: false,
 
       // ✅ Timer-Startpunkte zurücksetzen
-      reactionsStartedAt: null,
-      votingStartedAt: null,
-      resultStartedAt: null,
+      ...EMPTY_TIMER_STARTS,
     });
 
     // nur lokal: gezogene Magiekarte im Modal zeigen
@@ -61,6 +60,7 @@ export const handleShow = async (lobbyRef, lobby) => {
     reactionsStartedAt: Date.now(),
     votingStartedAt: null,
     resultStartedAt: null,
+    discardStartedAt: null,
   });
 };
 
@@ -94,6 +94,7 @@ export const handleDiscard = async (lobbyRef, lobby) => {
       reactionsStartedAt: null,
       votingStartedAt: null,
       resultStartedAt: null,
+      discardStartedAt: null,
     });
   } catch (err) {
     console.error("[DISCARD ERROR]", err);
@@ -244,25 +245,26 @@ export const handleResultAck = async (lobbyRef, lobby, playerName) => {
 /* --------------------------------
  * Reaktion "Done" (nur Nicht-Zugspieler)
  * -------------------------------- */
+// src/utils/gameActions.js
 export const handleReactionDone = async (lobbyRef, lobby, playerName) => {
   try {
     const reactions = lobby.reactions || {};
-
     if (reactions[playerName]?.done) return;
 
-    const updatedReactions = {
-      ...reactions,
-      [playerName]: { done: true },
-    };
-
+    const updatedReactions = { ...reactions, [playerName]: { done: true } };
     const othersDone =
       Object.values(updatedReactions).filter((r) => r?.done).length >=
       Math.max((lobby.players?.length || 0) - 1, 0);
 
-    await updateDoc(lobbyRef, {
+    const updates = {
       reactions: updatedReactions,
       allReactionsDone: othersDone,
-    });
+    };
+
+    // 👉 Discard-Countdown starten, wenn alle reagiert haben
+    if (othersDone) updates.discardStartedAt = Date.now();
+
+    await updateDoc(lobbyRef, updates);
   } catch (err) {
     console.error("[REACTION ERROR]", err);
   }

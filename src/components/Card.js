@@ -37,13 +37,6 @@ export default function Card({
   const currentLabel =
     typeLabels[normalizedType] || `[${normalizedType.toUpperCase()}]`;
 
-  // --- Debug-Ausgabe ---
-  console.log("📦 Card Props:", {
-    title,
-    type,
-    image,
-  });
-
   return (
     <ImageBackground
       source={currentFrame}
