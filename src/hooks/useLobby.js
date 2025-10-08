@@ -21,6 +21,10 @@ export function useLobby(lobbyId) {
           round: data.round || 1,
           effectsUsed: data.effectsUsed || {},
           ...data,
+          activeEffect: data.activeEffect ?? null,
+          votes: data.votes ?? { ja: [], nein: [] },
+          votingOpen: data.votingOpen ?? false,
+          reactions: data.reactions ?? {},
         });
       }
     });

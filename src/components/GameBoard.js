@@ -19,6 +19,7 @@ export default function GameBoard({
   onShow,
   onDiscard,
   setSelectedCard,
+  handleActivateEffect,
 }) {
   return (
     <>
@@ -161,10 +162,11 @@ export default function GameBoard({
         style={{
           flexDirection: "row",
           justifyContent: "center",
+          alignItems: "flex-end",
           marginTop: "auto",
         }}
       >
-        {/* Mein Monster */}
+        {/* Mein Monster (klein, klick für Preview) */}
         {me?.monster && (
           <TouchableOpacity
             onPress={() => setSelectedCard({ ...me.monster, type: "monster" })}
@@ -176,16 +178,13 @@ export default function GameBoard({
             />
           </TouchableOpacity>
         )}
-        {/* Meine Falle */}
+
+        {/* Meine Falle (nur Rückseite, klick für Preview) */}
         {me?.trap && (
           <TouchableOpacity
-            onPress={() => {
-              // Nur ich darf meine eigene Falle sehen
-              setSelectedCard({ ...me.trap, type: "trap" });
-            }}
+            onPress={() => setSelectedCard({ ...me.trap, type: "trap" })}
           >
             <Image
-              // Eigene Falle verdeckt anzeigen
               source={require("../../assets/images/card_back.png")}
               style={{ width: 100, height: 150, marginHorizontal: 10 }}
               resizeMode="cover"
