@@ -1,0 +1,94 @@
+---
+description: General development workflow, quality gates, git, and documentation
+alwaysApply: true
+---
+
+# Development Workflow
+
+Before making changes:
+
+- Read and understand the existing implementation in context.
+- Search for related screens, hooks, components, and utils before editing.
+- Prefer minimal, targeted modifications over large refactors.
+- Do not rewrite working systems unnecessarily.
+
+# Implementation Discovery
+
+Before creating new components, hooks, screens, or utilities:
+
+- Search `app/`, `src/components/`, `src/hooks/`, and `src/utils/` for existing implementations.
+- Reuse or extend existing code where possible.
+- Avoid duplicate modules that overlap in purpose.
+
+# Coding Style
+
+- Keep solutions simple and proportional to the task.
+- Avoid overengineering and unnecessary abstractions.
+- Avoid adding dependencies unless clearly justified.
+- Match surrounding naming, patterns, and documentation level.
+
+# Git
+
+## When commits are allowed
+
+Create a commit after a completed implementation task when **all** of the following are true:
+
+- Available quality checks pass (see Pre-commit checks below)
+- No secrets or environment files are staged
+- The implementation is complete — not a half-finished feature
+- No accidental unrelated files are included in the commit
+- The user has not explicitly said not to commit
+
+Do **not** create commits when:
+
+- `npm run lint` fails (when lint script exists)
+- Relevant tests fail (when test script exists)
+- TypeScript check fails (when configured)
+- The implementation is incomplete
+- The user explicitly says not to commit
+- Sensitive files are modified or staged
+
+Before committing, review `git status` and `git diff` — stage only files related to the completed task.
+
+## Pre-commit checks (run what exists)
+
+```bash
+npm run lint          # if defined in package.json
+npm run typecheck     # if defined
+npm test              # if defined
+npx tsc --noEmit      # if TypeScript configured and no typecheck script
+npx expo-doctor       # Expo projects
+```
+
+## Commit message format
+
+```
+<type>(<scope>): <short summary>
+```
+
+Examples:
+
+- `feat(game): add local card deck fallback`
+- `fix(lobby): handle missing player on reconnect`
+- `docs(project): update AI framework status`
+- `chore(cursor): add reusable Cursor AI project framework`
+
+Types: `feat`, `fix`, `docs`, `chore`, `test`, `refactor`.
+
+# Versioning
+
+App version lives in `app.json` (`expo.version`) and `package.json` (`version`).
+
+- Do not bump version during ordinary feature work.
+- Bump before store/EAS release builds or when the user explicitly requests it.
+- For EAS builds, also update `expo.android.versionCode` / `expo.ios.buildNumber` when configured.
+
+Follow `.cursor/rules/release-workflow.mdc` for release gates.
+
+# Documentation
+
+When functionality, architecture, or status changes:
+
+- Update `project.md` implementation status and known issues.
+- Update relevant docs under `docs/`.
+- Keep task completion and blocker tables accurate — do not mark unverified work as done.

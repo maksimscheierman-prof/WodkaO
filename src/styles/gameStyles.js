@@ -3,8 +3,9 @@ import { StyleSheet } from "react-native";
 export const gameStyles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "space-between",
-    padding: 20,
+    paddingHorizontal: 8,
+    paddingTop: 6,
+    paddingBottom: 6,
   },
   playerName: {
     color: "#fff",

@@ -1,0 +1,80 @@
+---
+description: Release and store workflow checks for Expo/React Native
+alwaysApply: true
+---
+
+# Release Workflow
+
+Use this checklist before EAS builds, TestFlight, or store uploads.
+
+Replace placeholders when configuring releases:
+
+| Placeholder | Example |
+|-------------|---------|
+| `APP_NAME` | `WodkaO` |
+| `PACKAGE_NAME` | `com.example.wodkao` (Android applicationId) |
+| `BUNDLE_ID` | `com.example.wodkao` (iOS) |
+
+## Mandatory release order
+
+When the user asks for a release build, execute in this order:
+
+1. **Update `project.md`** if release status or blockers change
+2. **`npm run lint`** — must pass
+3. **`npx expo-doctor`** — resolve critical issues
+4. **`npm test`** — if test script exists
+5. **Version bump** in `app.json` and `package.json` when shipping
+6. **EAS / native build** with correct env (`.env` or EAS secrets)
+7. **Verify output** — install build on device and smoke-test core loop
+8. **Git commit** only if the user explicitly requested a commit
+
+## Version bump
+
+- `app.json` → `expo.version` (user-facing version)
+- `package.json` → `version` (keep in sync)
+- For store uploads: increment Android `versionCode` and iOS `buildNumber` (via `app.json` or `eas.json`)
+
+Do **not** skip version increments for store uploads when a previous build was already submitted.
+
+## Pre-build checks
+
+| Check | Requirement |
+|-------|-------------|
+| Lint | `npm run lint` passes |
+| Env | Correct `.env` or EAS env for target track |
+| Firebase | Project matches release environment |
+| Signing | EAS credentials or local keystore configured |
+| App ID | `PACKAGE_NAME` / `BUNDLE_ID` match store console |
+
+## Build commands (Expo)
+
+Development:
+
+```bash
+npm start
+npm run android
+npm run ios
+```
+
+Production (when EAS configured):
+
+```bash
+npx eas build --platform android
+npx eas build --platform ios
+```
+
+Web static export (if needed):
+
+```bash
+npm run web
+```
+
+## Quality gates (summary)
+
+`npm run lint` → `npx expo-doctor` → **version bump** → **EAS/native build** → device smoke test
+
+## Pre-release docs
+
+- Review [docs/release-workflow.md](docs/release-workflow.md)
+- Update `project.md` blockers and status after release-related changes
+- Do not commit secrets, keystores, or local `.env` files

@@ -17,7 +17,10 @@ export default function MagicCardModal({
   handleVote,
   onDone,
   onResultOk,
+  actionDisabled = false,
 }) {
+  const actionOpacity = actionDisabled ? 0.5 : 1;
+
   //Hooks
   const src = (img) => (typeof img === "string" ? { uri: img } : img);
   const isMagic = (t) => typeof t === "string" && t.toLowerCase() === "magic";
@@ -183,29 +186,37 @@ export default function MagicCardModal({
           <View style={{ flexDirection: "row", marginTop: 20 }}>
             <TouchableOpacity
               onPress={() => handleVote("ja")}
+              disabled={actionDisabled}
               style={{
                 backgroundColor: "#1b5e20",
                 padding: 10,
                 borderRadius: 8,
                 marginHorizontal: 10,
+                opacity: actionOpacity,
               }}
             >
               <Text style={{ color: "#bbb", marginTop: 8 }}>
                 Auto-Ja in {fmt(voteLeft)}
               </Text>
 
-              <Text style={{ color: "#fff" }}>Ja ✅</Text>
+              <Text style={{ color: "#fff" }}>
+                {actionDisabled ? "⏳" : "Ja ✅"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => handleVote("nein")}
+              disabled={actionDisabled}
               style={{
                 backgroundColor: "#b71c1c",
                 padding: 10,
                 borderRadius: 8,
                 marginHorizontal: 10,
+                opacity: actionOpacity,
               }}
             >
-              <Text style={{ color: "#fff" }}>Nein ❌</Text>
+              <Text style={{ color: "#fff" }}>
+                {actionDisabled ? "⏳" : "Nein ❌"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -258,14 +269,18 @@ export default function MagicCardModal({
           {!acks[me.name] ? (
             <TouchableOpacity
               onPress={() => onResultOk(me.name)}
+              disabled={actionDisabled}
               style={{
                 marginTop: 20,
                 backgroundColor: "#D9C9A3",
                 padding: 10,
                 borderRadius: 8,
+                opacity: actionOpacity,
               }}
             >
-              <Text style={{ color: "#000" }}>OK</Text>
+              <Text style={{ color: "#000" }}>
+                {actionDisabled ? "⏳" : "OK"}
+              </Text>
               <Text style={{ color: "#bbb", marginTop: 8 }}>
                 Auto-Ja in {fmt(voteLeft)}
               </Text>
@@ -324,14 +339,16 @@ export default function MagicCardModal({
         {isMyTurn && !lobby.showMagic && (
           <TouchableOpacity
             onPress={handleShow}
+            disabled={actionDisabled}
             style={{
               marginTop: 15,
               backgroundColor: "#D9C9A3",
               padding: 10,
               borderRadius: 8,
+              opacity: actionOpacity,
             }}
           >
-            <Text>👁️ Zeigen</Text>
+            <Text>{actionDisabled ? "⏳ ..." : "👁️ Zeigen"}</Text>
           </TouchableOpacity>
         )}
 
@@ -350,6 +367,7 @@ export default function MagicCardModal({
                 {/* 🍺 Trinken zentriert */}
                 <TouchableOpacity
                   onPress={() => handleDrink(me.name)}
+                  disabled={actionDisabled}
                   style={{
                     backgroundColor: "#D9C9A3",
                     paddingVertical: 10,
@@ -358,9 +376,10 @@ export default function MagicCardModal({
                     marginBottom: 10,
                     width: 160,
                     alignItems: "center",
+                    opacity: actionOpacity,
                   }}
                 >
-                  <Text>🍺 Trinken (+1)</Text>
+                  <Text>{actionDisabled ? "⏳ ..." : "🍺 Trinken (+1)"}</Text>
                 </TouchableOpacity>
 
                 {/* Untere Reihe: Monster + Falle */}
@@ -394,16 +413,18 @@ export default function MagicCardModal({
                         {/* ⬇️ vorher disabled – jetzt aktiv */}
                         <TouchableOpacity
                           onPress={() => handleActivateEffect(me.monster)}
+                          disabled={actionDisabled}
                           style={{
                             marginTop: 5,
                             backgroundColor: "#337",
                             paddingHorizontal: 10,
                             paddingVertical: 6,
                             borderRadius: 6,
+                            opacity: actionOpacity,
                           }}
                         >
                           <Text style={{ color: "#fff" }}>
-                            ⚡ Monster aktivieren
+                            {actionDisabled ? "⏳" : "⚡ Monster aktivieren"}
                           </Text>
                         </TouchableOpacity>
                       </>
@@ -461,16 +482,18 @@ export default function MagicCardModal({
 
                         <TouchableOpacity
                           onPress={() => handleActivateEffect(me.trap)}
+                          disabled={actionDisabled}
                           style={{
                             marginTop: 5,
                             backgroundColor: "#A33",
                             paddingHorizontal: 10,
                             paddingVertical: 6,
                             borderRadius: 6,
+                            opacity: actionOpacity,
                           }}
                         >
                           <Text style={{ color: "#fff" }}>
-                            ⚡ Falle aktivieren
+                            {actionDisabled ? "⏳" : "⚡ Falle aktivieren"}
                           </Text>
                         </TouchableOpacity>
                       </>
@@ -484,6 +507,7 @@ export default function MagicCardModal({
                     onDone(me.name);
                     setTrapRevealed(false);
                   }}
+                  disabled={actionDisabled}
                   style={{
                     backgroundColor: "#D9C9A3",
                     padding: 10,
@@ -491,13 +515,14 @@ export default function MagicCardModal({
                     marginTop: 20,
                     width: 160,
                     alignItems: "center",
+                    opacity: actionOpacity,
                   }}
                 >
-                  <Text>✅ Done</Text>
-                  <Text style={{ color: "#bbb", marginTop: 8 }}>
-                    Automatisch Done in {fmt(reactLeft)}
-                  </Text>
+                  <Text>{actionDisabled ? "⏳ ..." : "✅ Done"}</Text>
                 </TouchableOpacity>
+                <Text style={{ color: "#bbb", marginTop: 8 }}>
+                  Automatisch Done in {fmt(reactLeft)}
+                </Text>
               </View>
             )}
 
@@ -519,19 +544,21 @@ export default function MagicCardModal({
             {isMyTurn && allDone && (
               <TouchableOpacity
                 onPress={handleDiscard}
+                disabled={actionDisabled}
                 style={{
                   marginTop: 20,
                   backgroundColor: "#d98c8c",
                   padding: 10,
                   borderRadius: 8,
+                  opacity: actionOpacity,
                 }}
               >
-                <Text>🗑️ Magiekarte ablegen</Text>
-                {isMyTurn && lobby?.allReactionsDone && (
-                  <Text style={{ color: "#bbb", marginTop: 8 }}>
-                    Automatisch ablegen in {fmt(discardLeft)}
-                  </Text>
-                )}
+                <Text>
+                  {actionDisabled ? "⏳ ..." : "🗑️ Magiekarte ablegen"}
+                </Text>
+                <Text style={{ color: "#bbb", marginTop: 8 }}>
+                  Automatisch ablegen in {fmt(discardLeft)}
+                </Text>
               </TouchableOpacity>
             )}
           </>
@@ -567,26 +594,34 @@ export default function MagicCardModal({
             <View style={{ flexDirection: "row", marginTop: 20 }}>
               <TouchableOpacity
                 onPress={() => handleVote("ja")}
+                disabled={actionDisabled}
                 style={{
                   backgroundColor: "#1b5e20",
                   padding: 10,
                   borderRadius: 8,
                   marginHorizontal: 10,
+                  opacity: actionOpacity,
                 }}
               >
-                <Text style={{ color: "#fff" }}>Ja ✅</Text>
+                <Text style={{ color: "#fff" }}>
+                  {actionDisabled ? "⏳" : "Ja ✅"}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => handleVote("nein")}
+                disabled={actionDisabled}
                 style={{
                   backgroundColor: "#b71c1c",
                   padding: 10,
                   borderRadius: 8,
                   marginHorizontal: 10,
+                  opacity: actionOpacity,
                 }}
               >
-                <Text style={{ color: "#fff" }}>Nein ❌</Text>
+                <Text style={{ color: "#fff" }}>
+                  {actionDisabled ? "⏳" : "Nein ❌"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -632,15 +667,19 @@ export default function MagicCardModal({
             </Text>
 
             <TouchableOpacity
-              onPress={handleCloseVoteResult} // ⬅️ statt setSelectedCard(null)
+              onPress={handleCloseVoteResult}
+              disabled={actionDisabled}
               style={{
                 marginTop: 20,
                 backgroundColor: "#D9C9A3",
                 padding: 10,
                 borderRadius: 8,
+                opacity: actionOpacity,
               }}
             >
-              <Text style={{ color: "#000" }}>OK</Text>
+              <Text style={{ color: "#000" }}>
+                {actionDisabled ? "⏳" : "OK"}
+              </Text>
             </TouchableOpacity>
           </View>
         )}

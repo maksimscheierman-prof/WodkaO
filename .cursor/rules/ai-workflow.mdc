@@ -1,0 +1,59 @@
+---
+description: How Cursor/AI agents should work in this React Native project
+alwaysApply: true
+---
+
+# AI Workflow
+
+## Scope
+
+This project is **React Native + Expo** (`jahw3-app`). Do not apply Flutter/Dart commands or patterns.
+
+## Before editing
+
+1. Read surrounding files and trace imports.
+2. Search for existing hooks, components, and utils with the same responsibility.
+3. Confirm whether the change affects Firebase, routing, or game state sync.
+
+## During implementation
+
+- Prefer the smallest correct diff.
+- Match existing JS patterns (functional components, hooks, expo-router).
+- Do not add backend complexity before the core game loop is stable.
+- Do not expose or log secrets (`.env`, Firebase keys).
+
+## After implementation
+
+Run available checks from `jahw3-app/`:
+
+```bash
+npm run lint
+npx expo-doctor
+```
+
+Add when configured: `npm run typecheck`, `npm test`, `npx tsc --noEmit`.
+
+## What not to do
+
+- No `flutter analyze`, `dart test`, `pubspec.yaml`, or `appbundle` workflows.
+- No blind `npm install` unless lockfile indicates the package manager.
+- No commits with `.env`, keystores, or credential files staged.
+- No large refactors or new features unless explicitly requested.
+
+## Documentation sync
+
+After meaningful changes, update:
+
+- `project.md` — status, blockers, scripts
+- `docs/testing.md` — if QA steps change
+- `docs/security.md` — if env or secret handling changes
+
+## Reference docs
+
+| Topic | Location |
+|-------|----------|
+| Project overview | `project.md` |
+| Security | `docs/security.md` |
+| Testing | `docs/testing.md` |
+| Release | `docs/release-workflow.md` |
+| AI workflow (human) | `docs/ai-workflow.md` |

@@ -1,13 +1,12 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { db } from "../firebaseConfig";
 import { DEFAULT_TIMERS, EMPTY_TIMER_STARTS } from "../src/config/timers";
+import { useAsyncLock } from "../src/hooks/useAsyncLock";
 import { randomMonster, randomTrap } from "../src/utils/gameLogic";
-
-const random = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Lobby-Code Generator
 const generateCode = () => {
@@ -27,6 +26,12 @@ export default function Lobby() {
   const [players, setPlayers] = useState([]);
   const [message, setMessage] = useState(null);
 
+  const createLock = useAsyncLock();
+  const joinLock = useAsyncLock();
+  const readyLock = useAsyncLock();
+  const [isStarting, setIsStarting] = useState(false);
+  const isStartingRef = useRef(false);
+
   const buttonStyle = {
     backgroundColor: "#D9C9A3",
     paddingVertical: 12,
@@ -35,6 +40,12 @@ export default function Lobby() {
     borderWidth: 3,
     borderColor: "#5C4033",
     marginTop: 20,
+  };
+
+  const disabledButtonStyle = {
+    ...buttonStyle,
+    backgroundColor: "#9a8f78",
+    opacity: 0.7,
   };
 
   const textStyle = {
@@ -63,11 +74,11 @@ export default function Lobby() {
       }
     });
     return unsub;
-  }, [lobbyId]);
+  }, [lobbyId, playerName, router]);
 
   // Neue Lobby erstellen
-  const createLobby = async () => {
-    try {
+  const createLobby = () => {
+    createLock.runLocked(async () => {
       const code = generateCode();
       setCreatedCode(code);
       setLobbyId(code);
@@ -91,11 +102,9 @@ export default function Lobby() {
         discardPile: [],
         round: 1,
         effectsUsed: {},
-        showMagic: true, // Karte wird angezeigt
-        reactions: { [playerName]: { done: false } }, // wer hat reagiert
-        reactingPlayers: [], // alle, die noch reagieren müssen (optional)
-
-        // ✅ Timer-Config und Startpunkte
+        showMagic: true,
+        reactions: { [playerName]: { done: false } },
+        reactingPlayers: [],
         timers: DEFAULT_TIMERS,
         ...EMPTY_TIMER_STARTS,
       };
@@ -104,23 +113,23 @@ export default function Lobby() {
 
       console.log("[CREATE LOBBY]", lobbyData);
       setMessage({ type: "success", text: `Lobby ${code} erstellt!` });
-    } catch (error) {
+    }).catch((error) => {
       console.error("Create Lobby Error:", error);
       setMessage({
         type: "error",
         text: "❌ Fehler beim Erstellen der Lobby.",
       });
-    }
+    });
   };
 
   // Lobby beitreten
-  const joinLobby = async () => {
+  const joinLobby = () => {
     if (!joinCode) {
       setMessage({ type: "error", text: "⚠️ Bitte gib einen Lobby-Code ein." });
       return;
     }
 
-    try {
+    joinLock.runLocked(async () => {
       const code = joinCode.trim().toUpperCase();
       const ref = doc(db, "lobbies", code);
       const snap = await getDoc(ref);
@@ -139,17 +148,28 @@ export default function Lobby() {
         setLobbyId(code);
         return;
       }
+
+      if (data.players.length >= 8) {
+        setMessage({
+          type: "error",
+          text: "❌ Lobby ist voll (max. 8 Spieler).",
+        });
+        return;
+      }
+
       if (!data.timers) {
         await updateDoc(ref, { timers: DEFAULT_TIMERS });
       }
 
+      const joiningDuringGame = data.status === "playing";
+
       const newPlayer = {
         id: Date.now().toString(),
         name: playerName,
-        ready: false,
+        ready: joiningDuringGame ? true : false,
         isHost: false,
-        monster: null,
-        trap: null,
+        monster: joiningDuringGame ? await randomMonster() : null,
+        trap: joiningDuringGame ? await randomTrap() : null,
         shots: 0,
       };
 
@@ -159,16 +179,17 @@ export default function Lobby() {
       console.log("[JOIN]", playerName, "in Lobby", code);
       setLobbyId(code);
       setMessage({ type: "success", text: `✅ Lobby ${code} beigetreten!` });
-    } catch (error) {
+    }).catch((error) => {
       console.error("[JOIN ERROR]", error);
       setMessage({ type: "error", text: "❌ Fehler beim Beitreten." });
-    }
+    });
   };
 
   // Ready umschalten
-  const toggleReady = async () => {
-    if (!lobbyId) return;
-    try {
+  const toggleReady = () => {
+    if (!lobbyId || readyLock.isLocked) return;
+
+    readyLock.runLocked(async () => {
       const ref = doc(db, "lobbies", lobbyId);
       const snap = await getDoc(ref);
       if (snap.exists()) {
@@ -178,21 +199,36 @@ export default function Lobby() {
         );
         await updateDoc(ref, { players: updatedPlayers });
       }
-    } catch (error) {
+    }).catch((error) => {
       console.error("Toggle Ready Error:", error);
-    }
+    });
+  };
+
+  const releaseStartLock = () => {
+    isStartingRef.current = false;
+    setIsStarting(false);
   };
 
   // Host startet das Spiel
   const startGame = async () => {
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
+    setIsStarting(true);
+
     try {
       const ref = doc(db, "lobbies", lobbyId);
       const snap = await getDoc(ref);
-      if (!snap.exists()) return;
+      if (!snap.exists()) {
+        releaseStartLock();
+        return;
+      }
 
       const data = snap.data();
+      if (data.status === "playing") {
+        releaseStartLock();
+        return;
+      }
 
-      // 🚀 Monster & Falle jetzt aus Google Sheet / GitHub
       const playersWithCards = await Promise.all(
         data.players.map(async (p) => ({
           ...p,
@@ -208,14 +244,10 @@ export default function Lobby() {
         round: 1,
         effectsUsed: {},
         lastMagic: null,
-        showMagic: true, // Karte wird angezeigt
-        reactions: { [playerName]: { done: false } }, // wer hat reagiert
-        reactingPlayers: [], // alle, die noch reagieren müssen (optional)
-
-        // ✅ Timer-Config sicher vorhanden lassen
+        showMagic: true,
+        reactions: { [playerName]: { done: false } },
+        reactingPlayers: [],
         timers: data.timers || DEFAULT_TIMERS,
-
-        // ✅ Timer-Startpunkte resetten
         ...EMPTY_TIMER_STARTS,
       });
 
@@ -223,11 +255,17 @@ export default function Lobby() {
     } catch (error) {
       console.error("Start Game Error:", error);
       setMessage({ type: "error", text: "❌ Fehler beim Starten des Spiels." });
+      releaseStartLock();
     }
   };
 
   const me = players.find((p) => p.name === playerName);
   const allReady = players.length > 0 && players.every((p) => p.ready);
+  const lobbyBusy =
+    createLock.isLocked ||
+    joinLock.isLocked ||
+    readyLock.isLocked ||
+    isStarting;
 
   return (
     <LinearGradient
@@ -270,14 +308,26 @@ export default function Lobby() {
 
       {!lobbyId && (
         <>
-          <TouchableOpacity style={buttonStyle} onPress={createLobby}>
-            <Text style={textStyle}>✨ Lobby erstellen</Text>
+          <TouchableOpacity
+            style={createLock.isLocked ? disabledButtonStyle : buttonStyle}
+            onPress={createLobby}
+            disabled={createLock.isLocked || lobbyBusy}
+          >
+            {createLock.isLocked ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator size="small" color="#2E1F12" />
+                <Text style={textStyle}>Lobby wird erstellt...</Text>
+              </View>
+            ) : (
+              <Text style={textStyle}>✨ Lobby erstellen</Text>
+            )}
           </TouchableOpacity>
 
           <TextInput
             placeholder="Lobby-Code eingeben"
             value={joinCode}
             onChangeText={setJoinCode}
+            editable={!joinLock.isLocked}
             style={{
               marginTop: 20,
               backgroundColor: "#fff",
@@ -285,10 +335,22 @@ export default function Lobby() {
               borderRadius: 8,
               width: 200,
               textAlign: "center",
+              opacity: joinLock.isLocked ? 0.6 : 1,
             }}
           />
-          <TouchableOpacity style={buttonStyle} onPress={joinLobby}>
-            <Text style={textStyle}>➡️ Beitreten</Text>
+          <TouchableOpacity
+            style={joinLock.isLocked ? disabledButtonStyle : buttonStyle}
+            onPress={joinLobby}
+            disabled={joinLock.isLocked || lobbyBusy}
+          >
+            {joinLock.isLocked ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator size="small" color="#2E1F12" />
+                <Text style={textStyle}>Beitritt läuft...</Text>
+              </View>
+            ) : (
+              <Text style={textStyle}>➡️ Beitreten</Text>
+            )}
           </TouchableOpacity>
         </>
       )}
@@ -314,7 +376,11 @@ export default function Lobby() {
       )}
 
       {me && (
-        <TouchableOpacity style={buttonStyle} onPress={toggleReady}>
+        <TouchableOpacity
+          style={readyLock.isLocked ? disabledButtonStyle : buttonStyle}
+          onPress={toggleReady}
+          disabled={readyLock.isLocked || isStarting}
+        >
           <Text style={textStyle}>
             {me.ready ? "❌ Nicht bereit" : "✅ Bereit"}
           </Text>
@@ -322,8 +388,19 @@ export default function Lobby() {
       )}
 
       {me?.isHost && allReady && (
-        <TouchableOpacity style={buttonStyle} onPress={startGame}>
-          <Text style={textStyle}>▶️ Spiel starten</Text>
+        <TouchableOpacity
+          style={isStarting ? disabledButtonStyle : buttonStyle}
+          onPress={startGame}
+          disabled={isStarting}
+        >
+          {isStarting ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <ActivityIndicator size="small" color="#2E1F12" />
+              <Text style={textStyle}>Spiel wird gestartet...</Text>
+            </View>
+          ) : (
+            <Text style={textStyle}>▶️ Spiel starten</Text>
+          )}
         </TouchableOpacity>
       )}
     </LinearGradient>

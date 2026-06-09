@@ -1,8 +1,15 @@
 import { Modal, Text, TouchableOpacity, View } from "react-native";
 import Card from "./Card";
 
-export default function CardModal({ selectedCard, setSelectedCard }) {
+export default function CardModal({ selectedCard, onClose }) {
   if (!selectedCard) return null;
+
+  const cardType =
+    typeof selectedCard.type === "string"
+      ? selectedCard.type.toLowerCase()
+      : "";
+  const isMonsterOrTrap = cardType === "monster" || cardType === "trap";
+  if (!isMonsterOrTrap) return null;
 
   return (
     <Modal visible={!!selectedCard} transparent animationType="fade">
@@ -27,7 +34,7 @@ export default function CardModal({ selectedCard, setSelectedCard }) {
         />
 
         <TouchableOpacity
-          onPress={() => setSelectedCard(null)}
+          onPress={onClose}
           style={{
             marginTop: 20,
             paddingVertical: 10,

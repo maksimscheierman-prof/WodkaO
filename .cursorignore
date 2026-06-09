@@ -1,0 +1,61 @@
+﻿# Secrets
+.env
+.env.*
+!.env.example
+
+# Firebase / Google
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# Android signing
+*.keystore
+*.jks
+key.properties
+**/key.properties
+android/app/release/
+android/.gradle/
+
+# iOS build
+ios/Pods/
+ios/build/
+ios/**/*.p12
+ios/**/*.mobileprovision
+
+# Node / React Native / Expo
+node_modules/
+dist/
+build/
+coverage/
+.expo/
+.expo-shared/
+
+# Credentials
+secrets/
+credentials/
+sentry.properties
+
+# Service accounts
+*service-account*.json
+*serviceAccount*.json
+**/credentials.json
+client_secret*.json
+oauth*credentials*.json
+*.pem
+
+# Git
+.git/
+.git/**
+
+# IDE
+.idea/
+.vscode/
+
+# Logs and temp
+*.log
+.DS_Store
+Thumbs.db
+
+# Large raw asset drafts
+assets/images/raw/

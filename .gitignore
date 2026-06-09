@@ -50,7 +50,36 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
+!.env.example
 .env*.local
+
+# Firebase / Google (project-specific)
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# Android signing
+key.properties
+**/key.properties
+*.keystore
+
+# Credentials
+secrets/
+credentials/
+sentry.properties
+*service-account*.json
+*serviceAccount*.json
+**/credentials.json
+client_secret*.json
+
+# Test coverage
+coverage/
+
+# Expo shared
+.expo-shared/
 
 # Logs
 *.log
@@ -79,6 +108,7 @@ app-example
 /ios
 /android
 
-# Env files
+# Env files (duplicate block — keep in sync with top)
 .env
 .env.*
+!.env.example

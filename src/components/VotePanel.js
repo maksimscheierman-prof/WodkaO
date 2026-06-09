@@ -1,6 +1,11 @@
 import { Text, TouchableOpacity, View } from "react-native";
 
-export default function VotePanel({ lobby, playerName, handleVote }) {
+export default function VotePanel({
+  lobby,
+  playerName,
+  handleVote,
+  actionDisabled = false,
+}) {
   if (!lobby) return null;
 
   // Wenn keine Abstimmung aktiv ist → nichts anzeigen
@@ -28,23 +33,29 @@ export default function VotePanel({ lobby, playerName, handleVote }) {
           >
             <TouchableOpacity
               onPress={() => handleVote("ja")}
+              disabled={actionDisabled}
               style={{
                 backgroundColor: "#1b5e20",
                 padding: 5,
                 borderRadius: 6,
                 flex: 1,
                 marginRight: 5,
+                opacity: actionDisabled ? 0.5 : 1,
               }}
             >
-              <Text style={{ color: "#fff", textAlign: "center" }}>Ja ✅</Text>
+              <Text style={{ color: "#fff", textAlign: "center" }}>
+                {actionDisabled ? "⏳" : "Ja ✅"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => handleVote("nein")}
+              disabled={actionDisabled}
               style={{
                 backgroundColor: "#b71c1c",
                 padding: 5,
                 borderRadius: 6,
                 flex: 1,
+                opacity: actionDisabled ? 0.5 : 1,
               }}
             >
               <Text style={{ color: "#fff", textAlign: "center" }}>

@@ -102,6 +102,36 @@ export const handleDiscard = async (lobbyRef, lobby) => {
 };
 
 /* --------------------------------
+ * Karte am Tisch ansehen (Presence / Denkblase)
+ * -------------------------------- */
+export const setViewingCard = async (lobbyRef, lobby, playerName, type) => {
+  try {
+    const updatedPlayers = (lobby.players || []).map((p) =>
+      p.name === playerName
+        ? { ...p, viewingCard: { type, startedAt: Date.now() } }
+        : p
+    );
+    await updateDoc(lobbyRef, { players: updatedPlayers });
+  } catch (err) {
+    console.error("[VIEWING CARD SET]", err);
+  }
+};
+
+export const clearViewingCard = async (lobbyRef, lobby, playerName) => {
+  try {
+    const updatedPlayers = (lobby.players || []).map((p) => {
+      if (p.name !== playerName) return p;
+      const next = { ...p };
+      delete next.viewingCard;
+      return next;
+    });
+    await updateDoc(lobbyRef, { players: updatedPlayers });
+  } catch (err) {
+    console.error("[VIEWING CARD CLEAR]", err);
+  }
+};
+
+/* --------------------------------
  * Trinken (+1)
  * -------------------------------- */
 export const handleDrink = async (lobbyRef, lobby, targetPlayerName) => {
@@ -243,9 +273,24 @@ export const handleResultAck = async (lobbyRef, lobby, playerName) => {
 };
 
 /* --------------------------------
+ * Vote-Ergebnis schließen (Legacy-OK im Modal)
+ * -------------------------------- */
+export const handleCloseVoteResult = async (lobbyRef) => {
+  try {
+    await updateDoc(lobbyRef, {
+      voteResult: null,
+      resolvedEffect: null,
+      resultAcks: {},
+      resultStartedAt: null,
+    });
+  } catch (e) {
+    console.error("[CLOSE VOTE RESULT ERROR]", e);
+  }
+};
+
+/* --------------------------------
  * Reaktion "Done" (nur Nicht-Zugspieler)
  * -------------------------------- */
-// src/utils/gameActions.js
 export const handleReactionDone = async (lobbyRef, lobby, playerName) => {
   try {
     const reactions = lobby.reactions || {};

@@ -1,0 +1,50 @@
+---
+description: Testing and QA gates before commit and release
+alwaysApply: false
+---
+
+# Testing & QA
+
+## After code changes
+
+| Area changed | Minimum checks |
+|--------------|----------------|
+| JS/TS app code | `npm run lint` |
+| TypeScript types | `npx tsc --noEmit` (if no `typecheck` script) |
+| Expo config / deps | `npx expo-doctor` |
+| Game logic / Firebase | Manual smoke test on device or emulator |
+| Release build | Full checklist in [docs/release-workflow.md](docs/release-workflow.md) |
+
+## Standard commands
+
+```bash
+cd jahw3-app
+npm run lint
+npx expo-doctor
+```
+
+Optional (when configured):
+
+```bash
+npm run typecheck
+npm test
+npx tsc --noEmit
+```
+
+## Manual device QA (core game loop)
+
+Run on **physical device or emulator** with valid `.env`:
+
+- App starts; Firebase/Firestore connects (startscreen status)
+- Enter player name; navigate to lobby
+- Create or join lobby; ready system works
+- Host starts game; all players redirect to game screen
+- Draw magic card; card modal and timers behave correctly
+- Voting and reaction phases complete without crash
+- Card gallery loads cards from configured data source
+
+## Before commit
+
+All **available** automated checks must pass. Do not commit if `npm run lint` reports errors.
+
+Do not mark manual QA items complete in `project.md` until verified on device.
