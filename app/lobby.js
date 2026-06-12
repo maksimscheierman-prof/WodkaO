@@ -1,12 +1,24 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, getDoc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { db } from "../firebaseConfig";
 import { DEFAULT_TIMERS, EMPTY_TIMER_STARTS } from "../src/config/timers";
 import { useAsyncLock } from "../src/hooks/useAsyncLock";
-import { randomMonster, randomTrap } from "../src/utils/gameLogic";
+import { buildGameDecks } from "../src/utils/gameLogic";
+import { GAME_PHASES } from "../src/config/gamePhases";
+import {
+  activityPatch,
+  ensureJoinableLobby,
+  EXPIRED_LOBBY_MESSAGE,
+  handleLeaveLobby,
+  isLobbyExpired,
+  isLobbyJoinable,
+  LOBBY_STATUS,
+  markLobbyExpired,
+  withActivity,
+} from "../src/utils/lobbyLifecycle";
 
 // Lobby-Code Generator
 const generateCode = () => {
@@ -18,7 +30,7 @@ const generateCode = () => {
 
 export default function Lobby() {
   const router = useRouter();
-  const { playerName } = useLocalSearchParams();
+  const { playerName, expiredMessage } = useLocalSearchParams();
 
   const [joinCode, setJoinCode] = useState("");
   const [createdCode, setCreatedCode] = useState(null);
@@ -29,8 +41,15 @@ export default function Lobby() {
   const createLock = useAsyncLock();
   const joinLock = useAsyncLock();
   const readyLock = useAsyncLock();
+  const leaveLock = useAsyncLock();
   const [isStarting, setIsStarting] = useState(false);
   const isStartingRef = useRef(false);
+
+  useEffect(() => {
+    if (expiredMessage) {
+      setMessage({ type: "error", text: expiredMessage });
+    }
+  }, [expiredMessage]);
 
   const buttonStyle = {
     backgroundColor: "#D9C9A3",
@@ -57,20 +76,40 @@ export default function Lobby() {
   // 🔴 Live-Updates der Lobby
   useEffect(() => {
     if (!lobbyId) return;
-    const unsub = onSnapshot(doc(db, "lobbies", lobbyId), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        console.log("[LOBBY SNAPSHOT]", JSON.stringify(data, null, 2));
-        setPlayers(data.players || []);
+    const ref = doc(db, "lobbies", lobbyId);
+    const unsub = onSnapshot(ref, async (snap) => {
+      if (!snap.exists()) {
+        setPlayers([]);
+        setMessage({ type: "error", text: "❌ Lobby nicht mehr vorhanden." });
+        setLobbyId(null);
+        setCreatedCode(null);
+        return;
+      }
 
-        // 🚀 Redirect für ALLE Spieler
-        if (data.status === "playing") {
-          console.log("[LOBBY] Spiel gestartet → Redirect zu /game");
-          router.replace({
-            pathname: "/game",
-            params: { lobbyId, playerName },
-          });
+      const data = snap.data();
+      console.log("[LOBBY SNAPSHOT]", JSON.stringify(data, null, 2));
+
+      if (isLobbyExpired(data)) {
+        if (data.status !== LOBBY_STATUS.EXPIRED) {
+          await markLobbyExpired(ref).catch((err) =>
+            console.error("[LOBBY EXPIRE]", err)
+          );
         }
+        setPlayers([]);
+        setLobbyId(null);
+        setCreatedCode(null);
+        setMessage({ type: "error", text: EXPIRED_LOBBY_MESSAGE });
+        return;
+      }
+
+      setPlayers(data.players || []);
+
+      if (data.status === LOBBY_STATUS.PLAYING) {
+        console.log("[LOBBY] Spiel gestartet → Redirect zu /game");
+        router.replace({
+          pathname: "/game",
+          params: { lobbyId, playerName },
+        });
       }
     });
     return unsub;
@@ -95,16 +134,18 @@ export default function Lobby() {
             shots: 0,
           },
         ],
-        status: "waiting",
-        createdAt: Date.now(),
+        status: LOBBY_STATUS.WAITING,
+        createdAt: serverTimestamp(),
+        ...activityPatch(),
         turn: 0,
         lastMagic: null,
         discardPile: [],
         round: 1,
         effectsUsed: {},
-        showMagic: true,
-        reactions: { [playerName]: { done: false } },
+        showMagic: false,
+        reactions: {},
         reactingPlayers: [],
+        gamePhase: null,
         timers: DEFAULT_TIMERS,
         ...EMPTY_TIMER_STARTS,
       };
@@ -140,12 +181,32 @@ export default function Lobby() {
       }
 
       const data = snap.data();
-      if (data.players.some((p) => p.name === playerName)) {
+
+      const alreadyJoined = data.players.some((p) => p.name === playerName);
+      if (alreadyJoined) {
+        if (!isLobbyJoinable(data)) {
+          setMessage({ type: "error", text: EXPIRED_LOBBY_MESSAGE });
+          return;
+        }
         setMessage({
           type: "info",
           text: "ℹ️ Du bist bereits in dieser Lobby.",
         });
         setLobbyId(code);
+        return;
+      }
+
+      const joinCheck = await ensureJoinableLobby(ref, data);
+      if (!joinCheck.ok) {
+        setMessage({ type: "error", text: joinCheck.message });
+        return;
+      }
+
+      if (data.status === LOBBY_STATUS.PLAYING) {
+        setMessage({
+          type: "error",
+          text: "❌ Spiel läuft bereits — Beitritt nicht möglich.",
+        });
         return;
       }
 
@@ -158,23 +219,21 @@ export default function Lobby() {
       }
 
       if (!data.timers) {
-        await updateDoc(ref, { timers: DEFAULT_TIMERS });
+        await updateDoc(ref, withActivity({ timers: DEFAULT_TIMERS }));
       }
-
-      const joiningDuringGame = data.status === "playing";
 
       const newPlayer = {
         id: Date.now().toString(),
         name: playerName,
-        ready: joiningDuringGame ? true : false,
+        ready: false,
         isHost: false,
-        monster: joiningDuringGame ? await randomMonster() : null,
-        trap: joiningDuringGame ? await randomTrap() : null,
+        monster: null,
+        trap: null,
         shots: 0,
       };
 
       const updatedPlayers = [...data.players, newPlayer];
-      await updateDoc(ref, { players: updatedPlayers });
+      await updateDoc(ref, withActivity({ players: updatedPlayers }));
 
       console.log("[JOIN]", playerName, "in Lobby", code);
       setLobbyId(code);
@@ -224,32 +283,45 @@ export default function Lobby() {
       }
 
       const data = snap.data();
-      if (data.status === "playing") {
+      if (isLobbyExpired(data)) {
+        releaseStartLock();
+        setMessage({ type: "error", text: EXPIRED_LOBBY_MESSAGE });
+        return;
+      }
+
+      if (data.status === LOBBY_STATUS.PLAYING) {
         releaseStartLock();
         return;
       }
 
-      const playersWithCards = await Promise.all(
-        data.players.map(async (p) => ({
-          ...p,
-          monster: await randomMonster(),
-          trap: await randomTrap(),
-        }))
-      );
+      const { monsterDeck, saufDeck } = await buildGameDecks();
+      const playerNames = data.players.map((p) => p.name);
 
-      await updateDoc(ref, {
-        players: playersWithCards,
-        status: "playing",
+      await updateDoc(ref, withActivity({
+        players: data.players.map((p) => ({
+          ...p,
+          monster: null,
+          trap: null,
+        })),
+        status: LOBBY_STATUS.PLAYING,
+        gamePhase: GAME_PHASES.ROLLING,
+        diceRolls: {},
+        diceRound: 1,
+        rollingEligible: playerNames,
+        startPlayerName: null,
+        monsterDeck,
+        saufDeck,
+        turn: 0,
         discardPile: [],
         round: 1,
         effectsUsed: {},
         lastMagic: null,
-        showMagic: true,
-        reactions: { [playerName]: { done: false } },
+        showMagic: false,
+        reactions: {},
         reactingPlayers: [],
         timers: data.timers || DEFAULT_TIMERS,
         ...EMPTY_TIMER_STARTS,
-      });
+      }));
 
       router.replace({ pathname: "/game", params: { lobbyId, playerName } });
     } catch (error) {
@@ -259,12 +331,32 @@ export default function Lobby() {
     }
   };
 
+  const leaveLobby = () => {
+    if (!lobbyId || leaveLock.isLocked) return;
+
+    leaveLock.runLocked(async () => {
+      const ref = doc(db, "lobbies", lobbyId);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        await handleLeaveLobby(ref, snap.data(), playerName);
+      }
+      setLobbyId(null);
+      setCreatedCode(null);
+      setPlayers([]);
+      setMessage({ type: "info", text: "Du hast die Lobby verlassen." });
+    }).catch((error) => {
+      console.error("Leave Lobby Error:", error);
+      setMessage({ type: "error", text: "❌ Fehler beim Verlassen." });
+    });
+  };
+
   const me = players.find((p) => p.name === playerName);
   const allReady = players.length > 0 && players.every((p) => p.ready);
   const lobbyBusy =
     createLock.isLocked ||
     joinLock.isLocked ||
     readyLock.isLocked ||
+    leaveLock.isLocked ||
     isStarting;
 
   return (
@@ -373,6 +465,16 @@ export default function Lobby() {
             </Text>
           ))}
         </View>
+      )}
+
+      {lobbyId && (
+        <TouchableOpacity
+          style={leaveLock.isLocked ? disabledButtonStyle : buttonStyle}
+          onPress={leaveLobby}
+          disabled={leaveLock.isLocked || isStarting}
+        >
+          <Text style={textStyle}>← Lobby verlassen</Text>
+        </TouchableOpacity>
       )}
 
       {me && (

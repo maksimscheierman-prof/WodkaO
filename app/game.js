@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { doc } from "firebase/firestore";
 
@@ -8,11 +8,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Text, useWindowDimensions, View } from "react-native";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { db } from "../firebaseConfig";
 
 import CardModal from "../src/components/CardModal";
 
 import GameBoard from "../src/components/GameBoard";
+
+import GameSetupPanel from "../src/components/GameSetupPanel";
 
 import LobbyCodeBadge from "../src/components/LobbyCodeBadge";
 
@@ -26,15 +30,32 @@ import { useLobby } from "../src/hooks/useLobby";
 
 import { gameStyles } from "../src/styles/gameStyles";
 
+import {
+  getPhaseLabel,
+  isPlayingPhase,
+  isSetupPhase,
+} from "../src/config/gamePhases";
+
 import * as actions from "../src/utils/gameActions";
 
+import { getBoardTopInset } from "../src/utils/tableLayout";
+
 import { handleCloseVoteResult } from "../src/utils/gameActions";
+
+import {
+  EXPIRED_LOBBY_MESSAGE,
+  isLobbyExpired,
+  LOBBY_STATUS,
+  markLobbyExpired,
+} from "../src/utils/lobbyLifecycle";
 
 
 
 export default function Game() {
 
   const { lobbyId, playerName } = useLocalSearchParams();
+
+  const router = useRouter();
 
   const lobby = useLobby(lobbyId);
 
@@ -44,9 +65,13 @@ export default function Game() {
 
   const actionLock = useAsyncLock();
 
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  const insets = useSafeAreaInsets();
 
   const compact = screenWidth < 400;
+
+  const hudTop = Math.max(compact ? 4 : 6, insets.top + (compact ? 2 : 4));
 
 
 
@@ -102,7 +127,31 @@ export default function Game() {
 
     runAction(async () => {
 
-      await actions.handleDraw(lobbyRef, setSelectedCard);
+      await actions.handleDraw(lobbyRef, lobby, setSelectedCard);
+
+    });
+
+  };
+
+
+
+  const onRollDice = () => {
+
+    runAction(async () => {
+
+      await actions.handleRollDice(lobbyRef, lobby, playerName);
+
+    });
+
+  };
+
+
+
+  const onDrawMonster = () => {
+
+    runAction(async () => {
+
+      await actions.handleDrawMonster(lobbyRef, lobby, playerName);
 
     });
 
@@ -234,6 +283,24 @@ export default function Game() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!lobby) return;
+    if (
+      lobby.status === LOBBY_STATUS.EXPIRED ||
+      isLobbyExpired(lobby)
+    ) {
+      if (lobby.status !== LOBBY_STATUS.EXPIRED) {
+        markLobbyExpired(lobbyRef).catch((err) =>
+          console.error("[GAME EXPIRE]", err)
+        );
+      }
+      router.replace({
+        pathname: "/lobby",
+        params: { playerName, expiredMessage: EXPIRED_LOBBY_MESSAGE },
+      });
+    }
+  }, [lobby, lobbyRef, playerName, router]);
+
   if (!lobby) {
 
     return (
@@ -263,6 +330,12 @@ export default function Game() {
   const isMyTurn = players[lobby.turn]?.name === playerName;
 
   const activePlayer = players[lobby.turn]?.name;
+
+  const setupPhase = isSetupPhase(lobby.gamePhase);
+
+  const playingPhase = isPlayingPhase(lobby.gamePhase, lobby);
+
+  const boardTopInset = getBoardTopInset(screenHeight, insets.top);
 
 
 
@@ -302,7 +375,7 @@ export default function Game() {
 
               position: "absolute",
 
-              top: compact ? 4 : 6,
+              top: hudTop,
 
               right: compact ? 4 : 6,
 
@@ -320,13 +393,13 @@ export default function Game() {
 
               position: "absolute",
 
-              top: compact ? 4 : 6,
+              top: hudTop,
 
               left: compact ? 6 : 8,
 
               zIndex: 20,
 
-              maxWidth: screenWidth * 0.55,
+              maxWidth: screenWidth * (compact ? 0.48 : 0.55),
 
               paddingRight: 8,
 
@@ -350,11 +423,15 @@ export default function Game() {
 
             >
 
-              {isMyTurn
+              {setupPhase
 
-                ? "🎯 Du bist am Zug!"
+                ? getPhaseLabel(lobby.gamePhase, lobby.diceRound)
 
-                : `⏳ ${activePlayer || "…"} ist am Zug`}
+                : isMyTurn
+
+                  ? "🎯 Du bist am Zug!"
+
+                  : `⏳ ${activePlayer || "…"} ist am Zug`}
 
             </Text>
 
@@ -362,33 +439,65 @@ export default function Game() {
 
 
 
-          <GameBoard
+          {setupPhase ? (
 
-            lobby={lobby}
+            <View style={{ flex: 1, paddingTop: boardTopInset }}>
 
-            me={me}
+            <GameSetupPanel
 
-            playerName={playerName}
+              lobby={lobby}
 
-            isMyTurn={isMyTurn}
+              playerName={playerName}
 
-            onDraw={onDraw}
+              onRollDice={onRollDice}
 
-            onShow={onShow}
+              onDrawMonster={onDrawMonster}
 
-            onDiscard={onDiscard}
+              actionDisabled={actionLock.isLocked}
 
-            onSelectCard={handleSelectCard}
+              compact={compact}
 
-            setSelectedCard={setSelectedCard}
+            />
 
-            actionDisabled={actionLock.isLocked}
+            </View>
 
-          />
+          ) : playingPhase ? (
+
+            <View style={{ flex: 1, minHeight: 300, paddingTop: boardTopInset }}>
+
+            <GameBoard
+
+              lobby={lobby}
+
+              me={me}
+
+              playerName={playerName}
+
+              isMyTurn={isMyTurn}
+
+              onDraw={onDraw}
+
+              onShow={onShow}
+
+              onDiscard={onDiscard}
+
+              onSelectCard={handleSelectCard}
+
+              setSelectedCard={setSelectedCard}
+
+              actionDisabled={actionLock.isLocked}
+
+            />
+
+            </View>
+
+          ) : null}
 
         </View>
 
 
+
+        {playingPhase && (
 
         <MagicCardModal
 
@@ -422,7 +531,11 @@ export default function Game() {
 
         />
 
+        )}
 
+
+
+        {playingPhase && (
 
         <VotePanel
 
@@ -435,6 +548,8 @@ export default function Game() {
           actionDisabled={actionLock.isLocked}
 
         />
+
+        )}
 
       </LinearGradient>
 

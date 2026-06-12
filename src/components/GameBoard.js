@@ -1,21 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
+import { GAME_PHASES } from "../config/gamePhases";
 import { getTableStackCounts } from "../utils/deckCounts";
-import { loadCards } from "../utils/gameLogic";
 import {
-  getAvatarBlockHeight,
-  getAvatarSize,
-  getCardSize,
-  getPlayerPositions,
-  getTableEllipse,
+  computeBoardLayout,
+  logLayoutDebug,
+  MIN_BOARD_HEIGHT,
   orderPlayersWithMeAtBottom,
 } from "../utils/tableLayout";
+import {
+  DEBUG_SLOT_COLORS,
+  isLayoutDebugEnabled,
+  slotToPosition,
+} from "../utils/tableSlotLayout";
 import StackPile from "./StackPile";
 import PlayerSeat from "./PlayerSeat";
 
@@ -29,6 +31,30 @@ const getImageSource = (img) => {
   return null;
 };
 
+function SlotDebugRect({ slot, color, label }) {
+  if (!slot || !isLayoutDebugEnabled()) return null;
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        left: slot.left,
+        top: slot.top,
+        width: slot.width,
+        height: slot.height,
+        backgroundColor: color,
+        borderWidth: 1,
+        borderColor: color.replace(/0\.\d+\)$/, "0.8)"),
+        zIndex: 50,
+      }}
+    >
+      {label ? (
+        <Text style={{ fontSize: 8, color: "#fff", padding: 1 }}>{label}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 export default function GameBoard({
   lobby,
   me,
@@ -41,20 +67,8 @@ export default function GameBoard({
   setSelectedCard,
   actionDisabled = false,
 }) {
-  const { width: screenWidth } = useWindowDimensions();
-  const [tableSize, setTableSize] = useState({ width: 0, height: 0 });
-  const [magicPoolSize, setMagicPoolSize] = useState(null);
-
-  const { width: cardWidth, height: cardHeight, seatWidth } = getCardSize(
-    screenWidth
-  );
-  const { height: avatarHeight, labelWidth: avatarLabelWidth } =
-    getAvatarSize(screenWidth);
-  const avatarBlockHeight = getAvatarBlockHeight(avatarHeight);
-  const stackW = Math.round(cardWidth * 1.15);
-  const stackH = Math.round(cardHeight * 1.15);
-  const compact = screenWidth < 400;
-  const stackGap = compact ? 6 : 14;
+  const [boardSize, setBoardSize] = useState({ width: 0, height: 0 });
+  const lastDebugKey = useRef("");
 
   const players = useMemo(() => lobby.players || [], [lobby.players]);
   const currentPlayerName = players[lobby.turn]?.name;
@@ -64,35 +78,57 @@ export default function GameBoard({
     [players, playerName, me?.name]
   );
 
-  const tableEllipse = useMemo(
-    () => getTableEllipse(tableSize.width, tableSize.height),
-    [tableSize.width, tableSize.height]
-  );
+  const layout = useMemo(() => {
+    if (!boardSize.width || !boardSize.height) return null;
+    return computeBoardLayout(
+      boardSize.width,
+      boardSize.height,
+      orderedPlayers.length
+    );
+  }, [boardSize.width, boardSize.height, orderedPlayers.length]);
 
-  const playerPositions = useMemo(
-    () =>
-      getPlayerPositions(
-        orderedPlayers.length,
-        tableSize.width,
-        tableSize.height,
-        avatarBlockHeight,
-        { cardWidth, cardHeight, seatWidth }
-      ),
-    [
-      orderedPlayers.length,
-      tableSize.width,
-      tableSize.height,
-      avatarBlockHeight,
-      cardWidth,
-      cardHeight,
-      seatWidth,
-    ]
-  );
+  const slots = layout?.slotLayout?.slots;
 
-  const stackCounts = useMemo(
-    () => getTableStackCounts(lobby, magicPoolSize),
-    [lobby, magicPoolSize]
-  );
+  const playerSlots = useMemo(() => {
+    if (!slots?.playerSlots) return [];
+    return slots.playerSlots.map((ps) => ({
+      card: slotToPosition(ps.monster),
+      avatar: slotToPosition(ps.avatar),
+      role: ps.role,
+    }));
+  }, [slots]);
+
+  useEffect(() => {
+    if (!layout || !slots) return;
+    const key = `${layout.boardWidth}x${layout.boardHeight}-${layout.contentScale}-${orderedPlayers.length}`;
+    if (key === lastDebugKey.current) return;
+    lastDebugKey.current = key;
+
+    logLayoutDebug("GameBoard", {
+      board: { w: layout.boardWidth, h: layout.boardHeight },
+      contentScale: layout.contentScale,
+      hasOverlap: layout.slotLayout.hasOverlap,
+      tableRect: {
+        w: Math.round(slots.tableRect.width),
+        h: Math.round(slots.tableRect.height),
+      },
+      slots: {
+        deck: slotToPosition(slots.centerDeckSlot),
+        discard: slotToPosition(slots.centerDiscardSlot),
+        drawButton: slotToPosition(slots.drawButtonSlot),
+        topMonster: slotToPosition(slots.topMonsterSlot),
+        bottomMonster: slotToPosition(slots.bottomMonsterSlot),
+      },
+      playerSlots: playerSlots.map((p, i) => ({
+        i,
+        role: p.role,
+        monster: p.card,
+        avatar: p.avatar,
+      })),
+    });
+  }, [layout, slots, orderedPlayers.length, playerSlots]);
+
+  const stackCounts = useMemo(() => getTableStackCounts(lobby), [lobby]);
 
   const topDiscard = lobby.discardPile?.length
     ? lobby.discardPile[lobby.discardPile.length - 1]
@@ -101,80 +137,96 @@ export default function GameBoard({
     ? getImageSource(topDiscard.image)
     : null;
 
-  useEffect(() => {
-    let cancelled = false;
-    loadCards()
-      .then((cards) => {
-        if (cancelled) return;
-        const n = cards.filter((c) => c.type === "MAGIC").length;
-        setMagicPoolSize(n);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const inPlayingPhase = lobby.gamePhase === GAME_PHASES.PLAYING;
 
-  const btnStyle = {
-    marginTop: 6,
-    backgroundColor: "#D9C9A3",
-    paddingVertical: compact ? 6 : 8,
-    paddingHorizontal: compact ? 10 : 14,
-    borderRadius: 8,
-    opacity: actionDisabled ? 0.5 : 1,
+  const onBoardLayout = (e) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setBoardSize((prev) =>
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height }
+      );
+    }
   };
 
-  const rowWidth = stackW * 3 + stackGap * 2;
-  const centerLeft =
-    tableSize.width > 0 ? tableSize.width / 2 - rowWidth / 2 : 0;
-  const centerTop =
-    tableSize.height > 0
-      ? tableEllipse.centerY - stackH / 2 - 24
-      : 0;
+  if (!layout || !slots) {
+    return (
+      <View
+        style={{ flex: 1, minHeight: MIN_BOARD_HEIGHT }}
+        onLayout={onBoardLayout}
+      />
+    );
+  }
 
+  const {
+    boardWidth,
+    cardWidth,
+    cardHeight,
+    seatWidth,
+    avatarHeight,
+    avatarLabelWidth,
+    avatarBlockHeight,
+    stackW,
+    stackH,
+    tableEllipse,
+  } = layout;
+
+  const compact = boardWidth < 400;
   const activeCardW = Math.round(cardWidth * 1.35);
   const activeCardH = Math.round(cardHeight * 1.35);
 
-  const stackHeadroom =
-    lobby.lastMagic && lobby.showMagic
-      ? activeCardH + 10
-      : lobby.lastMagic && !lobby.showMagic
-        ? activeCardH * 0.35
-        : 0;
-  const roundTop = centerTop - stackHeadroom - (compact ? 20 : 26);
+  const btnStyle = {
+    backgroundColor: "#D9C9A3",
+    paddingVertical: compact ? 8 : 10,
+    paddingHorizontal: compact ? 12 : 14,
+    minHeight: 44,
+    borderRadius: 8,
+    opacity: actionDisabled ? 0.5 : 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: slots.drawButtonSlot.width,
+  };
+
+  const deckCol = slots.centerDeckSlot;
+  const discardCol = slots.centerDiscardSlot;
+  const drawSlot = slots.drawButtonSlot;
 
   return (
     <View
-      style={{ flex: 1, minHeight: 280 }}
-      onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout;
-        setTableSize({ width, height });
-      }}
+      style={{ flex: 1, minHeight: MIN_BOARD_HEIGHT }}
+      onLayout={onBoardLayout}
     >
-      <View style={{ flex: 1, position: "relative" }}>
-        {tableSize.width > 0 && (
-          <View
-            style={{
-              position: "absolute",
-              left: tableEllipse.left,
-              top: tableEllipse.top,
-              width: tableEllipse.width,
-              height: tableEllipse.height,
-              borderRadius: tableEllipse.borderRadius,
-              backgroundColor: "rgba(20,80,40,0.35)",
-              borderWidth: 2,
-              borderColor: "rgba(217,201,163,0.35)",
-            }}
-          />
-        )}
+      <View style={{ flex: 1, position: "relative", overflow: "visible" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: tableEllipse.left,
+            top: tableEllipse.top,
+            width: tableEllipse.width,
+            height: tableEllipse.height,
+            borderRadius: tableEllipse.borderRadius,
+            backgroundColor: "rgba(20,80,40,0.35)",
+            borderWidth: 2,
+            borderColor: "rgba(217,201,163,0.35)",
+          }}
+        />
 
-        {tableSize.width > 0 && lobby.round ? (
+        <SlotDebugRect slot={slots.tableRect} color={DEBUG_SLOT_COLORS.table} label="table" />
+        <SlotDebugRect slot={slots.deckColumnSlot} color={DEBUG_SLOT_COLORS.deckColumn} label="deckCol" />
+        <SlotDebugRect slot={slots.centerDeckSlot} color={DEBUG_SLOT_COLORS.centerDeck} label="deck" />
+        <SlotDebugRect slot={slots.centerDiscardSlot} color={DEBUG_SLOT_COLORS.centerDiscard} label="discard" />
+        <SlotDebugRect slot={slots.drawButtonSlot} color={DEBUG_SLOT_COLORS.drawButton} label="draw" />
+        <SlotDebugRect slot={slots.topMonsterSlot} color={DEBUG_SLOT_COLORS.topMonster} label="topMon" />
+        <SlotDebugRect slot={slots.bottomMonsterSlot} color={DEBUG_SLOT_COLORS.bottomMonster} label="botMon" />
+
+        {lobby.round ? (
           <Text
             style={{
               position: "absolute",
-              left: 0,
-              right: 0,
-              top: roundTop,
+              left: slots.roundLabelSlot.left,
+              top: slots.roundLabelSlot.top,
+              width: slots.roundLabelSlot.width,
               textAlign: "center",
               color: "rgba(217,201,163,0.95)",
               fontSize: compact ? 12 : 14,
@@ -186,32 +238,21 @@ export default function GameBoard({
           </Text>
         ) : null}
 
-        {tableSize.width > 0 && (
-          <View
-            style={{
-              position: "absolute",
-              left: centerLeft,
-              top: centerTop,
-              width: rowWidth,
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "flex-end",
-              zIndex: 2,
-            }}
-          >
-            {/* Fallenkarten-Stapel (links) */}
-            <StackPile
-              label="Fallenkarten"
-              count={stackCounts.traps}
-              width={stackW}
-              height={stackH}
-            />
-
-            {/* Magiestapel (mitte) + Ziehen/Aufdecken */}
-            <View style={{ alignItems: "center", width: stackW + 16 }}>
+        {inPlayingPhase && (
+          <>
+            <View
+              style={{
+                position: "absolute",
+                left: deckCol.left,
+                top: deckCol.top,
+                width: deckCol.width,
+                alignItems: "center",
+                zIndex: 2,
+              }}
+            >
               <StackPile
-                label="Magiestapel"
-                count={stackCounts.magic ?? 0}
+                label="Saufstapel"
+                count={stackCounts.sauf}
                 width={stackW}
                 height={stackH}
               />
@@ -240,7 +281,67 @@ export default function GameBoard({
                   </Text>
                 </View>
               )}
+            </View>
 
+            <View
+              style={{
+                position: "absolute",
+                left: discardCol.left,
+                top: discardCol.top,
+                width: discardCol.width,
+                alignItems: "center",
+                zIndex: 2,
+              }}
+            >
+              {lobby.lastMagic && lobby.showMagic && (
+                <View style={{ alignItems: "center", marginBottom: 6 }}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setSelectedCard({ ...lobby.lastMagic, type: "magic" })
+                    }
+                  >
+                    <Image
+                      source={getImageSource(lobby.lastMagic.image)}
+                      style={{
+                        width: activeCardW,
+                        height: activeCardH,
+                        borderRadius: 6,
+                        borderWidth: 2,
+                        borderColor: "#D9C9A3",
+                      }}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                  <Text
+                    style={{ color: "#fff", fontSize: 9, marginTop: 2 }}
+                    numberOfLines={1}
+                  >
+                    {lobby.lastMagic.name}
+                  </Text>
+                </View>
+              )}
+
+              <StackPile
+                label="Ablage"
+                count={stackCounts.discard}
+                width={stackW}
+                height={stackH}
+                topCardImage={topDiscardImage}
+              />
+            </View>
+
+            <View
+              style={{
+                position: "absolute",
+                left: drawSlot.left,
+                top: drawSlot.top,
+                width: drawSlot.width,
+                height: drawSlot.height,
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 3,
+              }}
+            >
               {isMyTurn && !lobby.lastMagic && (
                 <TouchableOpacity
                   onPress={onDraw}
@@ -254,7 +355,7 @@ export default function GameBoard({
                       fontSize: compact ? 11 : 13,
                     }}
                   >
-                    {actionDisabled ? "⏳ ..." : "✨ Ziehen"}
+                    {actionDisabled ? "⏳ ..." : "🍺 Ziehen"}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -295,66 +396,50 @@ export default function GameBoard({
                 </TouchableOpacity>
               )}
             </View>
-
-            {/* Ablagestapel (rechts) + aktuelle Karte darüber */}
-            <View style={{ alignItems: "center", width: stackW + 16 }}>
-              {lobby.lastMagic && lobby.showMagic && (
-                <View style={{ alignItems: "center", marginBottom: 6 }}>
-                  <TouchableOpacity
-                    onPress={() =>
-                      setSelectedCard({ ...lobby.lastMagic, type: "magic" })
-                    }
-                  >
-                    <Image
-                      source={getImageSource(lobby.lastMagic.image)}
-                      style={{
-                        width: activeCardW,
-                        height: activeCardH,
-                        borderRadius: 6,
-                        borderWidth: 2,
-                        borderColor: "#D9C9A3",
-                      }}
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                  <Text
-                    style={{ color: "#fff", fontSize: 9, marginTop: 2 }}
-                    numberOfLines={1}
-                  >
-                    {lobby.lastMagic.name}
-                  </Text>
-                </View>
-              )}
-
-              <StackPile
-                label="Ablage"
-                count={stackCounts.discard}
-                width={stackW}
-                height={stackH}
-                topCardImage={topDiscardImage}
-              />
-            </View>
-          </View>
+          </>
         )}
 
-        {orderedPlayers.map((player, index) => (
-          <PlayerSeat
-            key={player.id || player.name}
-            player={player}
-            cardPosition={playerPositions[index]?.card}
-            avatarPosition={playerPositions[index]?.avatar}
-            seatWidth={seatWidth}
-            cardWidth={cardWidth}
-            cardHeight={cardHeight}
-            avatarHeight={avatarHeight}
-            avatarBlockHeight={avatarBlockHeight}
-            avatarLabelWidth={avatarLabelWidth}
-            isCurrentTurn={currentPlayerName === player.name}
-            isMe={player.name === (playerName || me?.name)}
-            onSelectCard={onSelectCard}
-            compact={compact}
+        {slots.playerSlots.map((ps) => (
+          <SlotDebugRect
+            key={`av-${ps.seatIndex}`}
+            slot={ps.avatar}
+            color={DEBUG_SLOT_COLORS.avatar}
+            label={`av${ps.seatIndex}`}
           />
         ))}
+        {slots.playerSlots.map((ps) => (
+          <SlotDebugRect
+            key={`mon-${ps.seatIndex}`}
+            slot={ps.monster}
+            color={
+              ps.role === "left" || ps.role === "right"
+                ? DEBUG_SLOT_COLORS.sideMonster
+                : DEBUG_SLOT_COLORS.topMonster
+            }
+            label={`m${ps.seatIndex}`}
+          />
+        ))}
+
+        {inPlayingPhase &&
+          orderedPlayers.map((player, index) => (
+            <PlayerSeat
+              key={player.id || player.name}
+              player={player}
+              cardPosition={playerSlots[index]?.card}
+              avatarPosition={playerSlots[index]?.avatar}
+              seatWidth={seatWidth}
+              cardWidth={cardWidth}
+              cardHeight={cardHeight}
+              avatarHeight={avatarHeight}
+              avatarBlockHeight={avatarBlockHeight}
+              avatarLabelWidth={avatarLabelWidth}
+              isCurrentTurn={currentPlayerName === player.name}
+              isStartPlayer={lobby.startPlayerName === player.name}
+              isMe={player.name === (playerName || me?.name)}
+              onSelectCard={onSelectCard}
+              compact={compact}
+            />
+          ))}
       </View>
     </View>
   );

@@ -1,34 +1,172 @@
 // src/utils/gameActions.js
 import { updateDoc } from "firebase/firestore";
+import { GAME_PHASES } from "../config/gamePhases";
 import { EMPTY_TIMER_STARTS } from "../config/timers";
-import { randomMagic } from "./gameLogic";
+import { drawTopCard } from "./gameLogic";
+import { withActivity } from "./lobbyLifecycle";
+
+const PHASE_RESET = {
+  activeEffect: null,
+  votingOpen: false,
+  votes: { ja: [], nein: [] },
+  voteResult: null,
+  resolvedEffect: null,
+  resultAcks: {},
+  reactions: {},
+  allReactionsDone: false,
+  ...EMPTY_TIMER_STARTS,
+};
+
+function rollD6() {
+  return Math.floor(Math.random() * 6) + 1;
+}
+
+function resolveDiceRolls(lobby, newRolls) {
+  const eligible = lobby.rollingEligible || [];
+  const max = Math.max(...eligible.map((n) => newRolls[n] ?? 0));
+  const winners = eligible.filter((n) => newRolls[n] === max);
+
+  if (winners.length === 1) {
+    const winnerName = winners[0];
+    const turn = Math.max(
+      0,
+      (lobby.players || []).findIndex((p) => p.name === winnerName)
+    );
+    return {
+      diceRolls: newRolls,
+      startPlayerName: winnerName,
+      turn,
+      gamePhase: GAME_PHASES.DRAWING_MONSTERS,
+      rollingEligible: [],
+    };
+  }
+
+  return {
+    diceRolls: {},
+    diceRound: (lobby.diceRound || 1) + 1,
+    rollingEligible: winners,
+    gamePhase: GAME_PHASES.RESOLVING_TIE,
+  };
+}
 
 /* --------------------------------
- * Ziehen
+ * Würfeln — Startspieler bestimmen
  * -------------------------------- */
-export const handleDraw = async (lobbyRef, setSelectedCard) => {
+export const handleRollDice = async (lobbyRef, lobby, playerName) => {
+  const phase = lobby?.gamePhase;
+  if (
+    phase !== GAME_PHASES.ROLLING &&
+    phase !== GAME_PHASES.RESOLVING_TIE
+  ) {
+    return;
+  }
+
+  const eligible = lobby.rollingEligible || [];
+  if (!eligible.includes(playerName)) return;
+
+  const rolls = { ...(lobby.diceRolls || {}) };
+  if (rolls[playerName] != null) return;
+
+  rolls[playerName] = rollD6();
+
+  const allRolled = eligible.every((name) => rolls[name] != null);
+  const updates = allRolled
+    ? resolveDiceRolls(lobby, rolls)
+    : { diceRolls: rolls };
+
+  await updateDoc(lobbyRef, withActivity(updates));
+};
+
+/* --------------------------------
+ * Monster ziehen (Startphase)
+ * -------------------------------- */
+export const handleDrawMonster = async (lobbyRef, lobby, playerName) => {
+  if (lobby?.gamePhase !== GAME_PHASES.DRAWING_MONSTERS) return;
+
+  const player = (lobby.players || []).find((p) => p.name === playerName);
+  if (!player || player.monster) return;
+
+  const { card, deck } = drawTopCard(lobby.monsterDeck);
+  if (!card) return;
+
+  const updatedPlayers = (lobby.players || []).map((p) =>
+    p.name === playerName ? { ...p, monster: card } : p
+  );
+
+  const allHaveMonster = updatedPlayers.every((p) => p.monster);
+
+  await updateDoc(
+    lobbyRef,
+    withActivity({
+      players: updatedPlayers,
+      monsterDeck: deck,
+      ...(allHaveMonster
+        ? {
+            gamePhase: GAME_PHASES.PLAYING,
+            round: 1,
+            lastMagic: null,
+            showMagic: false,
+            ...PHASE_RESET,
+          }
+        : {}),
+    })
+  );
+};
+
+/* --------------------------------
+ * Ziehen aus dem Saufstapel (Spielphase)
+ * -------------------------------- */
+export const handleDraw = async (lobbyRef, lobby, setSelectedCard) => {
+  if (lobby?.gamePhase !== GAME_PHASES.PLAYING) return;
+  if (lobby?.lastMagic) return;
+
   try {
-    const newMagic = await randomMagic();
+    const { card, deck } = drawTopCard(lobby.saufDeck);
+    if (!card) return;
 
-    await updateDoc(lobbyRef, {
-      lastMagic: newMagic,
-      showMagic: false,
-      // Vorsichtshalber alte Zustände leeren
-      activeEffect: null,
-      votingOpen: false,
-      votes: { ja: [], nein: [] },
-      voteResult: null,
-      resolvedEffect: null,
-      resultAcks: {},
-      reactions: {},
-      allReactionsDone: false,
+    const type = (card.type || "").toUpperCase();
+    const activeIdx = lobby.turn ?? 0;
+    const activePlayer = lobby.players?.[activeIdx];
 
-      // ✅ Timer-Startpunkte zurücksetzen
-      ...EMPTY_TIMER_STARTS,
-    });
+    if (type === "MAGIC") {
+      await updateDoc(
+        lobbyRef,
+        withActivity({
+          saufDeck: deck,
+          lastMagic: card,
+          showMagic: false,
+          ...PHASE_RESET,
+        })
+      );
+      setSelectedCard({ ...card, type: "MAGIC" });
+      return;
+    }
 
-    // nur lokal: gezogene Magiekarte im Modal zeigen
-    setSelectedCard({ ...newMagic, type: "MAGIC" });
+    if (type === "TRAP" && activePlayer) {
+      const discardPile = [...(lobby.discardPile || [])];
+      if (activePlayer.trap) discardPile.push(activePlayer.trap);
+
+      const updatedPlayers = (lobby.players || []).map((p) =>
+        p.name === activePlayer.name ? { ...p, trap: card } : p
+      );
+      const nextTurn = (activeIdx + 1) % (lobby.players?.length || 1);
+      const round =
+        nextTurn === 0 ? (lobby.round || 1) + 1 : lobby.round || 1;
+
+      await updateDoc(
+        lobbyRef,
+        withActivity({
+          saufDeck: deck,
+          discardPile,
+          players: updatedPlayers,
+          turn: nextTurn,
+          round,
+          lastMagic: null,
+          showMagic: false,
+          ...PHASE_RESET,
+        })
+      );
+    }
   } catch (err) {
     console.error("[DRAW ERROR]", err);
   }
@@ -38,6 +176,7 @@ export const handleDraw = async (lobbyRef, setSelectedCard) => {
  * Karte zeigen (Reaktionsphase starten)
  * -------------------------------- */
 export const handleShow = async (lobbyRef, lobby) => {
+  if (lobby?.gamePhase !== GAME_PHASES.PLAYING) return;
   if (!lobby?.lastMagic) return;
 
   const reactions = {};
@@ -47,16 +186,12 @@ export const handleShow = async (lobbyRef, lobby) => {
     showMagic: true,
     reactions,
     allReactionsDone: false,
-
-    // Voting/Ergebnis sauber resetten
     activeEffect: null,
     votingOpen: false,
     votes: { ja: [], nein: [] },
     voteResult: null,
     resolvedEffect: null,
     resultAcks: {},
-
-    // ✅ Timer setzen
     reactionsStartedAt: Date.now(),
     votingStartedAt: null,
     resultStartedAt: null,
@@ -68,34 +203,24 @@ export const handleShow = async (lobbyRef, lobby) => {
  * Magiekarte ablegen & nächster Spieler
  * -------------------------------- */
 export const handleDiscard = async (lobbyRef, lobby) => {
+  if (lobby?.gamePhase !== GAME_PHASES.PLAYING) return;
+
   try {
     const discardPile = [...(lobby.discardPile || []), lobby.lastMagic];
     const nextTurn = ((lobby.turn ?? 0) + 1) % (lobby.players?.length || 1);
     const round = nextTurn === 0 ? (lobby.round || 1) + 1 : lobby.round || 1;
 
-    await updateDoc(lobbyRef, {
-      discardPile,
-      lastMagic: null,
-      turn: nextTurn,
-      round,
-      showMagic: false,
-
-      // Phase-States zurücksetzen
-      activeEffect: null,
-      votingOpen: false,
-      votes: { ja: [], nein: [] },
-      voteResult: null,
-      resolvedEffect: null,
-      resultAcks: {},
-      reactions: {},
-      allReactionsDone: false,
-
-      // ✅ Timer beenden
-      reactionsStartedAt: null,
-      votingStartedAt: null,
-      resultStartedAt: null,
-      discardStartedAt: null,
-    });
+    await updateDoc(
+      lobbyRef,
+      withActivity({
+        discardPile,
+        lastMagic: null,
+        turn: nextTurn,
+        round,
+        showMagic: false,
+        ...PHASE_RESET,
+      })
+    );
   } catch (err) {
     console.error("[DISCARD ERROR]", err);
   }
@@ -155,8 +280,6 @@ export const handleActivateEffect = async (lobbyRef, card, sourcePlayer) => {
       activeEffect: { player: sourcePlayer, card },
       votes: { ja: [], nein: [] },
       votingOpen: true,
-
-      // ✅ Voting-Timer starten
       votingStartedAt: Date.now(),
     });
     console.log(
@@ -189,7 +312,7 @@ export const handleVote = async (lobbyRef, lobby, playerName, vote) => {
       const ja = updatedVotes.ja.length;
       const nein = updatedVotes.nein.length;
 
-      const eff = lobby.activeEffect; // { player, card }
+      const eff = lobby.activeEffect;
       const cardType = (eff?.card?.type || "").toLowerCase();
 
       const updates = {
@@ -200,29 +323,24 @@ export const handleVote = async (lobbyRef, lobby, playerName, vote) => {
           ja > nein
             ? "✅ Effekt wurde bestätigt!"
             : ja < nein
-            ? `❌ Effekt abgelehnt! ${eff.player} muss trinken 🍻`
-            : "⚖️ Gleichstand – nix passiert.",
+              ? `❌ Effekt abgelehnt! ${eff.player} muss trinken 🍻`
+              : "⚖️ Gleichstand – nix passiert.",
         resolvedEffect: {
           player: eff.player,
           card: eff.card,
           approved: ja > nein,
         },
-        resultAcks: {}, // ACK-Map initialisieren
-
-        // ✅ Voting-Timer stoppen, Ergebnis-Timer starten
+        resultAcks: {},
         votingStartedAt: null,
         resultStartedAt: Date.now(),
       };
 
-      // Konsequenzen bei bestätigtem Effekt
       if (ja > nein) {
         if (cardType === "trap") {
-          // Falle verbrauchen
           updates.players = (lobby.players || []).map((p) =>
             p.name === eff.player ? { ...p, trap: null } : p
           );
         } else if (cardType === "monster") {
-          // Monster in dieser Runde markiert
           updates.effectsUsed = {
             ...(lobby.effectsUsed || {}),
             [eff.player]: {
@@ -233,7 +351,6 @@ export const handleVote = async (lobbyRef, lobby, playerName, vote) => {
         }
       }
 
-      // Konsequenz bei abgelehntem Effekt
       if (nein > ja) {
         updates.players = (lobby.players || []).map((p) =>
           p.name === eff.player ? { ...p, shots: (p.shots || 0) + 1 } : p
@@ -247,10 +364,6 @@ export const handleVote = async (lobbyRef, lobby, playerName, vote) => {
   }
 };
 
-/* --------------------------------
- * Ergebnis-ACK: Spieler klickt "OK"
- * Overlay bleibt, bis ALLE bestätigt haben
- * -------------------------------- */
 export const handleResultAck = async (lobbyRef, lobby, playerName) => {
   try {
     const acks = { ...(lobby.resultAcks || {}), [playerName]: true };
@@ -258,11 +371,9 @@ export const handleResultAck = async (lobbyRef, lobby, playerName) => {
 
     const updates = { resultAcks: acks };
     if (allAcked) {
-      // Alle haben bestätigt → Ergebnis schließen, zurück in Reaktionsphase
       updates.voteResult = null;
       updates.resolvedEffect = null;
       updates.resultAcks = {};
-      // ✅ Ergebnis-Timer stoppen
       updates.resultStartedAt = null;
     }
 
@@ -272,9 +383,6 @@ export const handleResultAck = async (lobbyRef, lobby, playerName) => {
   }
 };
 
-/* --------------------------------
- * Vote-Ergebnis schließen (Legacy-OK im Modal)
- * -------------------------------- */
 export const handleCloseVoteResult = async (lobbyRef) => {
   try {
     await updateDoc(lobbyRef, {
@@ -288,9 +396,6 @@ export const handleCloseVoteResult = async (lobbyRef) => {
   }
 };
 
-/* --------------------------------
- * Reaktion "Done" (nur Nicht-Zugspieler)
- * -------------------------------- */
 export const handleReactionDone = async (lobbyRef, lobby, playerName) => {
   try {
     const reactions = lobby.reactions || {};
@@ -306,7 +411,6 @@ export const handleReactionDone = async (lobbyRef, lobby, playerName) => {
       allReactionsDone: othersDone,
     };
 
-    // 👉 Discard-Countdown starten, wenn alle reagiert haben
     if (othersDone) updates.discardStartedAt = Date.now();
 
     await updateDoc(lobbyRef, updates);

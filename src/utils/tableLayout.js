@@ -1,26 +1,149 @@
 /**
- * Geometrie für Pokertisch — eine Quelle für Filz-Ellipse, Karten und Avatare.
- * Index 0 = oben, gleichmäßig im Uhrzeigersinn.
+ * Zentrale Board-Layout-Berechnung — eine Quelle für alle Maße (LayoutBuilder/onLayout).
  */
 
+import { computeTableSlotLayout } from "./tableSlotLayout";
+
 const AVATAR_TOUCH_GAP = 4;
-const CARD_EDGE_PAD = 30;
 
-/** Platz für Zugstatus + Lobby-Code oben (Safe Area). */
+export const MIN_BOARD_HEIGHT = 300;
+export const MIN_TABLE_HEIGHT = 160;
+export const MIN_TABLE_WIDTH = 220;
+/** Mindestverhältnis Tischhöhe / Tischbreite (verhindert „Platte“-Ellipse). */
+export const MIN_TABLE_ASPECT = 0.36;
+
+export function getLayoutMetrics(boardWidth, boardHeight = 800) {
+  const veryShort = boardHeight < 520;
+  const short = boardHeight < 680;
+  const landscape = isTrueLandscape(boardWidth, boardHeight);
+  return {
+    topHudHeight: veryShort ? 40 : landscape ? 48 : short ? 64 : 80,
+    tableShiftY: 0,
+  };
+}
+
+export function isSquashedViewport(boardWidth, boardHeight) {
+  if (!boardWidth || !boardHeight) return false;
+  const aspect = boardWidth / boardHeight;
+  return boardHeight < 380 || aspect > 1.65;
+}
+
+export function isTrueLandscape(boardWidth, boardHeight) {
+  if (!boardWidth || !boardHeight) return false;
+  if (isSquashedViewport(boardWidth, boardHeight)) return false;
+  return boardWidth > boardHeight && boardHeight >= 420;
+}
+
+export function getTableInnerPadding(cardHeight, radiusY, radiusX) {
+  const r = Math.min(radiusY, radiusX);
+  return Math.max(10, Math.min(24, Math.round(cardHeight * 0.14 + r * 0.06)));
+}
+
+export function getCardSlotHalfExtents(cardWidth, cardHeight, seatWidth) {
+  const rowPad = 3;
+  const halfH = cardHeight / 2 + rowPad;
+  const rowW = cardWidth * 2 + 10;
+  const halfW = Math.min(seatWidth / 2, rowW / 2);
+  return { halfW, halfH, rowPad };
+}
+
 export const TOP_HUD_HEIGHT = 80;
-/** Zusätzliche Verschiebung des gesamten Spielbereichs nach unten. */
-export const TABLE_SHIFT_Y = 50;
 
-/** Filz-Ellipse — identisch zu GameBoard felt View. */
-export function getTableEllipse(boardWidth, boardHeight) {
-  const tableW = boardWidth * 0.84;
-  const tableH = boardHeight * 0.8;
-  const tableLeft = boardWidth * 0.08;
-  const maxTop = Math.max(0, boardHeight - tableH);
-  const tableTop = Math.min(
-    Math.max(TOP_HUD_HEIGHT, boardHeight * 0.1 + TABLE_SHIFT_Y),
-    maxTop
+export function getAvatarMargins(avatarBlockHeight, avatarLabelWidth = 120) {
+  const avatarOffset = avatarBlockHeight / 2 + AVATAR_TOUCH_GAP;
+  const verticalExtent = avatarOffset + avatarBlockHeight / 2 + 10;
+  const sideExtent = Math.max(
+    avatarBlockHeight * 0.55,
+    avatarLabelWidth / 2 + 12
   );
+  return { verticalExtent, sideExtent, avatarOffset };
+}
+
+export function getTableScaleFactors(boardWidth, boardHeight) {
+  const squashed = isSquashedViewport(boardWidth, boardHeight);
+  const landscape = isTrueLandscape(boardWidth, boardHeight);
+  const veryShort = boardHeight < 520;
+  const short = boardHeight < 680;
+
+  if (squashed) {
+    return { width: 0.9, height: 0.76, squashed: true, landscape: false };
+  }
+  if (veryShort) {
+    return {
+      width: 0.76,
+      height: landscape ? 0.68 : 0.72,
+      squashed: false,
+      landscape,
+    };
+  }
+  if (short || landscape) {
+    return {
+      width: 0.84,
+      height: landscape ? 0.76 : 0.8,
+      squashed: false,
+      landscape,
+    };
+  }
+  return { width: 0.88, height: 0.86, squashed: false, landscape: false };
+}
+
+export function getMinTableHeight(avatarBlockHeight, stackHeight = 88) {
+  const centerBand = stackHeight + 96;
+  const verticalNeed = avatarBlockHeight * 2 + centerBand;
+  return Math.max(MIN_TABLE_HEIGHT, Math.round(verticalNeed * 0.42));
+}
+
+export function getTableEllipse(
+  boardWidth,
+  boardHeight,
+  layoutMetrics = null,
+  avatarBlockHeight = 100,
+  avatarLabelWidth = 120,
+  stackHeight = 88
+) {
+  if (!boardWidth || !boardHeight) {
+    return {
+      centerX: 0,
+      centerY: 0,
+      radiusX: 0,
+      radiusY: 0,
+      left: 0,
+      top: 0,
+      width: 0,
+      height: 0,
+      borderRadius: 0,
+    };
+  }
+
+  const effectiveHeight = Math.max(boardHeight, MIN_BOARD_HEIGHT);
+  const { verticalExtent, sideExtent } = getAvatarMargins(
+    avatarBlockHeight,
+    avatarLabelWidth
+  );
+  const scale = getTableScaleFactors(boardWidth, effectiveHeight);
+
+  const topReserve = verticalExtent;
+  const bottomReserve = verticalExtent + 8;
+
+  const safeW = Math.max(MIN_TABLE_WIDTH, boardWidth - sideExtent * 2);
+  const safeH = Math.max(
+    getMinTableHeight(avatarBlockHeight, stackHeight),
+    effectiveHeight - topReserve - bottomReserve
+  );
+
+  let tableW = safeW * scale.width;
+  let tableH = safeH * scale.height;
+
+  const minH = getMinTableHeight(avatarBlockHeight, stackHeight);
+  tableH = Math.max(minH, tableH);
+  tableW = Math.max(MIN_TABLE_WIDTH, tableW);
+
+  if (tableH / tableW < MIN_TABLE_ASPECT) {
+    tableH = tableW * MIN_TABLE_ASPECT;
+  }
+
+  const tableLeft = (boardWidth - tableW) / 2;
+  const tableTop = topReserve + Math.max(0, (safeH - tableH) * 0.12);
 
   return {
     centerX: tableLeft + tableW / 2,
@@ -31,11 +154,12 @@ export function getTableEllipse(boardWidth, boardHeight) {
     top: tableTop,
     width: tableW,
     height: tableH,
-    borderRadius: boardWidth * 0.42,
+    borderRadius: tableW * 0.42,
+    scale,
+    effectiveHeight,
   };
 }
 
-/** Einheits-Normale nach außen am Ellipsenpunkt (parametrischer Winkel). */
 export function getOutwardNormal(angle, radiusX, radiusY) {
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
@@ -45,7 +169,6 @@ export function getOutwardNormal(angle, radiusX, radiusY) {
   return { x: nx / len, y: ny / len };
 }
 
-/** Punkt exakt auf dem Tischrand. */
 export function getEdgePoint(centerX, centerY, radiusX, radiusY, angle) {
   return {
     x: centerX + radiusX * Math.cos(angle),
@@ -53,51 +176,61 @@ export function getEdgePoint(centerX, centerY, radiusX, radiusY, angle) {
   };
 }
 
-/** Inset vom Ellipsenrand — Karten vollständig auf der Tischfläche. */
-export function getCardInsets(cardWidth, cardHeight, seatWidth, radiusX, radiusY) {
-  const insetX = Math.max(
-    cardWidth / 2 + CARD_EDGE_PAD,
-    seatWidth / 2 + CARD_EDGE_PAD,
-    50
+export function getInnerTableRadii(
+  radiusX,
+  radiusY,
+  cardWidth,
+  cardHeight,
+  seatWidth
+) {
+  const { halfW, halfH } = getCardSlotHalfExtents(
+    cardWidth,
+    cardHeight,
+    seatWidth
   );
-  const insetY = Math.max(cardHeight / 2 + CARD_EDGE_PAD, 40);
+  const pad = getTableInnerPadding(cardHeight, radiusY, radiusX);
 
   return {
-    insetX: Math.min(insetX, radiusX * 0.62),
-    insetY: Math.min(insetY, radiusY * 0.62),
+    radiusX: Math.max(radiusX * 0.2, radiusX - halfW - pad),
+    radiusY: Math.max(radiusY * 0.2, radiusY - halfH - pad),
+    tableInnerPadding: pad,
+    halfW,
+    halfH,
   };
 }
 
-/**
- * Karten: parametrisch innerhalb der Ellipse (eigener Inset, nicht Edge-Point).
- * Avatar: am äußeren Rand per Normale — unverändert getrennt.
- */
 export function getPlayerPositions(
   playerCount,
   boardWidth,
   boardHeight,
   avatarBlockHeight = 100,
-  cardDimensions = null
+  cardDimensions = null,
+  layoutMetrics = null,
+  avatarLabelWidth = 120,
+  stackHeight = 88
 ) {
   if (!boardWidth || !boardHeight || playerCount <= 0) return [];
 
   const { centerX, centerY, radiusX, radiusY } = getTableEllipse(
     boardWidth,
-    boardHeight
+    boardHeight,
+    layoutMetrics,
+    avatarBlockHeight,
+    avatarLabelWidth,
+    stackHeight
   );
 
   const cardW = cardDimensions?.cardWidth ?? 52;
   const cardH = cardDimensions?.cardHeight ?? 78;
   const seatW = cardDimensions?.seatWidth ?? 110;
-  const { insetX, insetY } = getCardInsets(
-    cardW,
-    cardH,
-    seatW,
-    radiusX,
-    radiusY
-  );
 
-  const avatarOffset = avatarBlockHeight / 2 + AVATAR_TOUCH_GAP;
+  const { radiusX: innerRx, radiusY: innerRy, halfH, halfW, tableInnerPadding } =
+    getInnerTableRadii(radiusX, radiusY, cardW, cardH, seatW);
+
+  const { avatarOffset } = getAvatarMargins(avatarBlockHeight, avatarLabelWidth);
+
+  const tableBottom = centerY + radiusY;
+  const tableTop = centerY - radiusY;
 
   return Array.from({ length: playerCount }, (_, index) => {
     const angle =
@@ -109,11 +242,21 @@ export function getPlayerPositions(
     const edge = getEdgePoint(centerX, centerY, radiusX, radiusY, angle);
     const normal = getOutwardNormal(angle, radiusX, radiusY);
 
+    let cardX = centerX + innerRx * cos;
+    let cardY = centerY + innerRy * sin;
+
+    const minY = tableTop + tableInnerPadding + halfH;
+    const maxY = tableBottom - tableInnerPadding - halfH;
+    cardY = Math.min(maxY, Math.max(minY, cardY));
+
+    const tableLeft = centerX - radiusX;
+    const tableRight = centerX + radiusX;
+    const minX = tableLeft + tableInnerPadding + halfW;
+    const maxX = tableRight - tableInnerPadding - halfW;
+    cardX = Math.min(maxX, Math.max(minX, cardX));
+
     return {
-      card: {
-        x: centerX + (radiusX - insetX) * cos,
-        y: centerY + (radiusY - insetY) * sin,
-      },
+      card: { x: cardX, y: cardY },
       avatar: {
         x: edge.x + normal.x * avatarOffset,
         y: edge.y + normal.y * avatarOffset,
@@ -122,11 +265,6 @@ export function getPlayerPositions(
       angle,
     };
   });
-}
-
-/** @deprecated Nutze getPlayerPositions */
-export function getSeatPositions(playerCount, width, height) {
-  return getPlayerPositions(playerCount, width, height).map((p) => p.card);
 }
 
 export function orderPlayersWithMeAtBottom(players, myName) {
@@ -139,19 +277,160 @@ export function orderPlayersWithMeAtBottom(players, myName) {
   return [...players.slice(rotateBy), ...players.slice(0, rotateBy)];
 }
 
-export function getCardSize(screenWidth) {
-  if (screenWidth < 380) return { width: 44, height: 66, seatWidth: 100 };
-  if (screenWidth < 520) return { width: 52, height: 78, seatWidth: 110 };
+export function getCardSize(boardWidth, boardHeight = 800) {
+  const squashed = isSquashedViewport(boardWidth, boardHeight);
+  const landscape = isTrueLandscape(boardWidth, boardHeight);
+  const veryShort = boardHeight < 520;
+  const short = boardHeight < 680;
+
+  if (squashed) {
+    return { width: 42, height: 63, seatWidth: 96 };
+  }
+  if (veryShort || (landscape && boardHeight < 560)) {
+    return { width: 38, height: 57, seatWidth: 88 };
+  }
+  if (boardWidth < 360 || (short && boardWidth < 400)) {
+    return { width: 40, height: 60, seatWidth: 92 };
+  }
+  if (boardWidth < 380 || short) {
+    return { width: 44, height: 66, seatWidth: 100 };
+  }
+  if (boardWidth < 520 || landscape) {
+    return { width: 52, height: 78, seatWidth: 110 };
+  }
   return { width: 60, height: 90, seatWidth: 120 };
 }
 
-export function getAvatarSize(screenWidth) {
-  if (screenWidth < 380) return { height: 80, labelWidth: 108 };
-  if (screenWidth < 520) return { height: 100, labelWidth: 120 };
+export function getAvatarSize(boardWidth, boardHeight = 800) {
+  const squashed = isSquashedViewport(boardWidth, boardHeight);
+  const landscape = isTrueLandscape(boardWidth, boardHeight);
+  const veryShort = boardHeight < 520;
+  const short = boardHeight < 680;
+
+  if (squashed) {
+    return { height: 68, labelWidth: 100 };
+  }
+  if (veryShort || (landscape && boardHeight < 560)) {
+    return { height: 64, labelWidth: 92 };
+  }
+  if (boardWidth < 360 || (short && boardWidth < 400)) {
+    return { height: 72, labelWidth: 96 };
+  }
+  if (boardWidth < 380 || short) {
+    return { height: 80, labelWidth: 108 };
+  }
+  if (boardWidth < 520 || landscape) {
+    return { height: 100, labelWidth: 120 };
+  }
   return { height: 110, labelWidth: 130 };
 }
 
-/** Gesamthöhe Avatar-Block (Silhouette + Name + optional „am Zug“). */
 export function getAvatarBlockHeight(avatarHeight) {
   return avatarHeight + 36;
+}
+
+export function getBoardTopInset(boardHeight, safeAreaTop = 0) {
+  const compact = boardHeight < 680;
+  return Math.round(safeAreaTop + (compact ? 40 : 46));
+}
+
+/**
+ * Einzige Layout-Quelle für GameBoard — alles aus boardWidth/boardHeight (onLayout).
+ */
+export function computeBoardLayout(boardWidth, boardHeight, playerCount = 2) {
+  const layoutMetrics = getLayoutMetrics(boardWidth, boardHeight);
+  let { width: cardWidth, height: cardHeight, seatWidth } = getCardSize(
+    boardWidth,
+    boardHeight
+  );
+  let { height: avatarHeight, labelWidth: avatarLabelWidth } = getAvatarSize(
+    boardWidth,
+    boardHeight
+  );
+  let avatarBlockHeight = getAvatarBlockHeight(avatarHeight);
+  let stackH = Math.round(cardHeight * 1.15);
+  let stackW = Math.round(cardWidth * 1.15);
+  const tableEllipse = getTableEllipse(
+    boardWidth,
+    boardHeight,
+    layoutMetrics,
+    avatarBlockHeight,
+    avatarLabelWidth,
+    stackH
+  );
+  const scale = getTableScaleFactors(boardWidth, boardHeight);
+
+  const slotLayout = computeTableSlotLayout(
+    tableEllipse,
+    {
+      cardWidth,
+      cardHeight,
+      seatWidth,
+      stackW,
+      stackH,
+      avatarBlockHeight,
+      avatarLabelWidth,
+    },
+    Math.max(1, playerCount)
+  );
+
+  const sd = slotLayout.scaledDims;
+  cardWidth = sd.cardWidth;
+  cardHeight = sd.cardHeight;
+  seatWidth = sd.seatWidth;
+  stackH = sd.stackH;
+  stackW = sd.stackW;
+  avatarBlockHeight = sd.avatarBlockHeight;
+  avatarLabelWidth = sd.avatarLabelWidth;
+
+  return {
+    boardWidth,
+    boardHeight,
+    layoutMetrics,
+    cardWidth,
+    cardHeight,
+    seatWidth,
+    avatarHeight: Math.round(avatarHeight * slotLayout.contentScale),
+    avatarLabelWidth,
+    avatarBlockHeight,
+    stackH,
+    stackW,
+    tableEllipse,
+    slotLayout,
+    squashed: isSquashedViewport(boardWidth, boardHeight),
+    landscape: isTrueLandscape(boardWidth, boardHeight),
+    scale,
+    minBoardHeight: MIN_BOARD_HEIGHT,
+    contentScale: slotLayout.contentScale,
+  };
+}
+
+export function logLayoutDebug(source, payload) {
+  const enabled =
+    typeof process !== "undefined" &&
+    process.env.EXPO_PUBLIC_LAYOUT_DEBUG === "1";
+  if (enabled) {
+    console.log(`[LayoutDebug:${source}]`, payload);
+  }
+}
+
+/** @deprecated */
+export const TABLE_SHIFT_Y = 50;
+
+export function getSeatPositions(playerCount, width, height) {
+  return getPlayerPositions(playerCount, width, height).map((p) => p.card);
+}
+
+export function getCardInsets(cardWidth, cardHeight, seatWidth, radiusX, radiusY) {
+  const inner = getInnerTableRadii(
+    radiusX,
+    radiusY,
+    cardWidth,
+    cardHeight,
+    seatWidth
+  );
+  return {
+    insetX: radiusX - inner.radiusX,
+    insetY: radiusY - inner.radiusY,
+  };
 }

@@ -3,11 +3,46 @@
 Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über Firebase Firestore.
 
 **Git-Repo:** [maksimscheierman-prof/WodkaO](https://github.com/maksimscheierman-prof/WodkaO)  
-**App-Ordner:** `jahw3-app/` (lokaler Ordnername unverändert)  
+**App-Ordner:** `jahw3-app/` (lokaler Ordnername unverändert) — **dieser Ordner ist das Git-Root**  
+**Workspace-Parent:** `Sauf Viel-Oh/` (Cursor kann einen Ordner höher geöffnet sein; Root-`package.json` delegiert npm)  
 **npm package name:** `jahw3-app` (technisch, unverändert)  
 **Display name (UI):** Vod-ka-Oh!  
 **Version:** `1.0.0` (`app.json`, `package.json`)  
-**Phase:** MVP — Core Game Loop vorhanden, Pokertisch-UX und Stabilisierung im Fokus
+**Phase:** MVP — APK-Test mit Freunden (kein Store) — siehe [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md)
+
+---
+
+## APK-MVP (2026-06-09)
+
+| Dokument | Inhalt |
+|----------|--------|
+| [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md) | Firestore, Online-Sync, Concurrency |
+| [docs/firebase_cleanup.md](docs/firebase_cleanup.md) | Lobby-Ablauf (2h), Admin-Cleanup, Cloud Functions |
+| [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md) | Ziel, Soll/Ist, Checkliste, Phasen 1–5 |
+| [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) | EAS/APK-Befehle, Voraussetzungen |
+| [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md) | Spielphasen & Regeln |
+| [docs/layout_system.md](docs/layout_system.md) | Tisch-Slot-Layout (Deck, Monster, Avatare) |
+| [docs/layout_debug.md](docs/layout_debug.md) | Viewport/Squash-Debug (Cursor Browser) |
+| [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md) | Workspace-Struktur, Parent vs. App-Root |
+
+**Startordner für App-Befehle:** `jahw3-app/` (dieser Ordner) — oder Parent mit `npm run …` (delegiert)
+
+### Workspace-Struktur
+
+| Ordner öffnen in Cursor | npm | Git |
+|-------------------------|-----|-----|
+| `Sauf Viel-Oh` (Parent) | `npm run start` etc. vom Root | `cd jahw3-app && git …` |
+| `jahw3-app` (empfohlen für EAS/Git) | `npm run start` direkt | `git …` direkt |
+
+Siehe [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md).
+
+**Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web
+
+**APK-Status:** ⚠️ **Config fertig** (`eas.json`, `android.package: com.wodkao.app`) — Cloud-Build + Gerätetest noch offen ([docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md))
+
+**Online-Multiplayer:** ✅ **Implementiert** (Firestore + Lobby-Code) — siehe [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md)
+
+**Schnellster Test heute:** 2 Browser/`npm run web` mit gleichem Lobby-Code — **Freunde-Test:** APK + gleiche Firebase-Config
 
 ---
 
@@ -17,26 +52,74 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 - **Firebase/Firestore** wieder funktionsfähig (Lobby + Spiel-Sync; Firestore Rules im Firebase Console für MVP geöffnet)
 - **Multiplayer-Lobby** funktioniert (Erstellen, Beitreten, Ready, Host-Start)
-- **Spielstart** funktioniert (Kartenverteilung, Redirect zu `/game`)
-- **Pokertisch-Layout** implementiert (`GameBoard`, `tableLayout.js`)
-- Spieler werden **dynamisch um den Tisch** angeordnet (Ellipse, max. 8)
-- **Avatare außerhalb** des Tisches (Ellipsen-Normale am Tischrand)
-- **Karten innerhalb** des Tisches (parametrischer Inset vom Rand)
+- **Spielstart** mit Phasen (Würfeln → Monster → Spiel) — siehe [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md)
+- **Kein Mid-Game-Join** nach Start
+- **Pokertisch-Layout** — Slot-System (`tableSlotLayout.js`, `tableLayout.js`, `GameBoard.js`) — alle Objekte relativ zu `tableRect`
+- Spieler werden **nach Rolle** platziert (oben/unten/seitlich, max. 8); eigenes Monster zwischen Avatar und Tischmitte
+- **Avatare außerhalb** des Tisches; **Karten in definierten Slots** innerhalb der Tischfläche
 - **Lobby-Code** im Spiel sichtbar (`LobbyCodeBadge`, oben rechts, kopierbar auf Web)
-- **Join während laufendem Spiel** unterstützt — siehe unten
+- Join während laufendem Spiel: **entfernt** (Beitritt blockiert)
 - **Mehrfachklick-Schutz** via `useAsyncLock` (Lobby + Game + Modals)
 - **Karten-Viewing-Presence** — Denkblase bei Monster-/Fallenkarten (`viewingCard` in Firestore)
+- **Lobby-Ablauf:** Lobbys ohne Aktivität >2h → `status: "expired"`, Join blockiert — siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md)
 - **Lint:** 0 Errors, 9 Warnings (`react-hooks/exhaustive-deps`)
+- **Mobile Web:** Responsive Modals, Safe Area, Höhen-Breakpoints (`responsive.js`, `ResponsiveCard.js`)
+
+### Online-Multiplayer (Firebase) — MVP-Pflicht
+
+| Aspekt | Stand |
+|--------|-------|
+| Dienst | **Firestore only** (kein Auth, kein RTDB) |
+| Lobby-Code | 5 Zeichen = Document-ID `lobbies/{code}` |
+| Join | `joinLobby` — Code + Spielername |
+| Host | `players[].isHost` — nur Host-UI für Start |
+| Live-Sync | `onSnapshot` in `useLobby` + `lobby.js` |
+| Login | **Nicht nötig** — Spielername reicht |
+| APK + mehrere Geräte | ✅ **Architektur vorhanden** — gleiche Firebase-Config in APK |
+| Schema-Doku | [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md) |
+
+**Einschränkungen:** Turn-Validierung nur Client-UI; keine Firestore Transactions; Internet + Sheets nötig.
+
+### Mobile Responsiveness (2026-06-09)
+
+| Bereich | Stand |
+|---------|-------|
+| Pokertisch | `computeBoardLayout` + `tableSlotLayout` — eine onLayout-Quelle, Kollisionsprüfung |
+| Modal-Karten | `ResponsiveCard` skaliert 320×550 auf Viewport |
+| Reaktionsphase | Vertikal gestapelt unter 520px Breite |
+| HUD | Safe-Area-Insets, kompakter Lobby-Badge ab 360px |
+| VotePanel | Unten fixiert auf Mobile, Touch min. 44px |
+| Hover | Keine Desktop-only Hover-Logik |
+
+**Viewports geprüft:** 360×640, 390×844, 414×896, Landscape Mobile, Tablet (DevTools)
+
+**Offene Mobile-Todos:** 8-Spieler-Kollisionen auf SE-Größe, Lobby-Screen polish, echtes Gerätetest
+
+**Spielablauf (Detail):** [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md)
 
 ### Join während laufendem Spiel
 
 | Aspekt | Stand |
 |--------|-------|
-| Blockiert in `joinLobby`? | Nein |
-| Redirect zu `/game` | Ja, via `onSnapshot` bei `status: "playing"` |
-| Mid-Game-Karten | `randomMonster()` + `randomTrap()` beim Beitritt |
-| Max. Spieler | 8 |
-| Einschränkung | Turn/Reaction-Logik für späte Joiner nicht vollständig getestet |
+| Beitritt bei `status: "playing"` | **Blockiert** |
+| Mid-Game-Karten | Entfernt — kein Join nach Start |
+
+### Spielphasen (`gamePhase`)
+
+| Phase | Beschreibung |
+|-------|--------------|
+| `rollingForStartPlayer` | Alle würfeln für Startspieler |
+| `resolvingTie` | Gleichstand — erneutes Würfeln |
+| `drawingMonsters` | Jeder zieht 1 Monster |
+| `playing` | Normaler Zugablauf (Saufstapel) |
+
+### Decks (Firestore)
+
+| Stapel | Inhalt |
+|--------|--------|
+| `monsterDeck` | Nur Monster — Startphase |
+| `saufDeck` | Magie + Fallen gemischt |
+| `discardPile` | Abgelegte Karten |
 
 ### Mehrfachklick-Schutz
 
@@ -59,13 +142,12 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 *Stand: 2026-06-09 — Game-Screen*
 
-### Pokertisch
+### Pokertisch (Slot-System)
 
-- Filz-Ellipse (`getTableEllipse`) als zentrale Layout-Quelle
-- Drei Ebenen: Tisch → Karten (innen) → Avatar (außen)
-- `TOP_HUD_HEIGHT = 80` + `TABLE_SHIFT_Y = 50` — Spielbereich nach unten, kein Avatar-Crop oben
-- Zentrale Stapel: Fallen (links) · Magie (mitte) · Ablage (rechts)
-- Rundenanzeige im Tisch über den Stapeln
+- `tableRect` = einziges Koordinatensystem für alle Spielobjekte ([docs/layout_system.md](docs/layout_system.md))
+- Slots: `topMonsterSlot`, `bottomMonsterSlot`, `centerDeckSlot`, `centerDiscardSlot`, `drawButtonSlot`, Avatar-Bereiche
+- Kollisionsprüfung + proportionale Verkleinerung (`contentScale`) bei knapper Höhe
+- Debug: `EXPO_PUBLIC_LAYOUT_DEBUG=1` → farbige Slot-Rechtecke
 
 ### Avatar-System
 
@@ -79,7 +161,9 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 - Dynamische Layer: 0 = leeres Feld, 1–4 = echte Anzahl, 5+ = max. 5 sichtbar
 - Label zeigt echte Count in Klammern
-- Magiestapel-Count = Pool-Größe aus Google Sheets (nicht verbleibendes Deck)
+- **Saufstapel** (links Mitte) = `saufDeck.length` (Magie + Fallen gemischt)
+- **Ablage** (rechts Mitte) = `discardPile.length`
+- **Ziehen-Button** — eigener Slot unter Saufstapel (nicht im Monster-Slot)
 - Fallen-Count = `players.filter(p => p.trap).length`
 - `LayoutAnimation` bei Count-Wechsel
 
@@ -103,13 +187,33 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 ---
 
+## Bugfixes / Tech Debt
+
+| Datum | Fix |
+|-------|-----|
+| 2026-06-09 | **Tisch-Slot-Layout:** `tableSlotLayout.js` — Deck/Ablage/Button/Monster/Avatar relativ zu `tableRect`, Kollisionsprüfung |
+| 2026-06-09 | **Layout Squash-Fix:** Cursor-Browser-Viewport — `isSquashedViewport`, Mindest-Tischhöhe ([docs/layout_debug.md](docs/layout_debug.md)) |
+| 2026-06-09 | **Admin cleanup script:** `scripts/cleanup_old_lobbies.js` — Standard dry-run; `--delete` / `--expire` nur per Flag |
+| 2026-06-09 | **Stale lobby cleanup:** `lastActivityAt` + `serverTimestamp` bei Lobby-/Spielaktionen; Join blockiert nach 2h Inaktivität; `status: expired`; CF-Snippet in [docs/firebase_cleanup.md](docs/firebase_cleanup.md) |
+| 2026-06-09 | Fixed responsive game table layout so player avatars are never clipped; table scales down based on available viewport. |
+| 2026-06-09 | Fixed bottom monster/card slot positioning so cards stay fully inside the table bounds with responsive inner padding. |
+
+**Lobby-Ablauf (Neu):** Nach 2 Stunden ohne relevante Aktion gilt eine Lobby als abgelaufen. Meldung: *„Diese Lobby ist abgelaufen. Bitte erstelle eine neue Lobby.“* Serverseitige Scheduled Function noch manuell deployen (Snippet im Repo).
+
+**Admin-Cleanup:** `npm run cleanup:lobbies -- --hours=2` (dry-run). Writes nur mit `--expire` oder `--delete`. Siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md).
+
+**Offene Setup-Schritte:** Firebase Functions deployen; einmalig Admin-Cleanup für Legacy-Daten — siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md).
+
+---
+
 ## Offene Bugs
 
 | Bug | Status | Details |
 |-----|--------|---------|
 | `bubbleText is not defined` | ✅ Behoben | `bubbleText` in `PlayerSeat.js` definiert; ggf. Metro-Cache leeren (`expo start -c`) |
+| Avatar oben abgeschnitten (kurzer/quer Viewport) | ✅ Behoben | Avatar-aware `getTableEllipse`, `boardTopInset`, kleinere Avatare bei height unter 520px |
 | Viewing-Bubble verschwindet nicht immer korrekt | ⚠️ Offen | Nach 15 s lokales Timeout oder Modal-Close; Edge-Cases bei Tab-Wechsel/Unmount prüfen |
-| Avatar/Karten-Positionierung | ⚠️ Feintuning | Auf sehr kleinen Screens / Querformat ggf. noch Abstände justieren |
+| Avatar/Karten-Positionierung | ✅ Slot-System | Feintuning 8 Spieler / sehr kleine Screens — [docs/layout_system.md](docs/layout_system.md) |
 | `reactions`-Init nur für Host | ⚠️ Bekannt | Reaktionsphase evtl. falsch für Joiner |
 | Doppelte Vote-UI | ⚠️ Bekannt | `VotePanel` + `MagicCardModal` parallel |
 | `MagicCardModal` ohne `me`-Guard | ⚠️ Risiko | `me.name` wenn Spieler nicht in Lobby — potenzieller Crash |
@@ -121,20 +225,19 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 ## Nächste Prioritäten
 
-### Priorität 1 — Stabilisierung
+### Priorität 1 — APK & Multiplayer
 
-- Multiplayer-End-to-End testen (2+ Browser/Geräte)
+- EAS Login + `EXPO_PUBLIC_*` in Environment `preview` setzen
+- `eas build --platform android --profile preview` ausführen
+- APK auf 2+ Geräten: Lobby → voller Spielablauf
+- Multiplayer-End-to-End im Browser verifizieren (2+ Clients)
+
+### Priorität 2 — Stabilisierung
+
 - Presence-System fertigstellen (Bubble-Lifecycle, Edge-Cases)
-- Runtime-Audit nach jedem UX-Refactor
-- Push nach `WodkaO` (Commit vorbereitet, Push manuell)
+- Bekannte Bugs triagieren (nur Blocker)
 
-### Priorität 2 — Karten-/Stapel-UX
-
-- Stapel-Animationen verfeinern (Ablegen, Ziehen)
-- Responsiveness Querformat / kleine Screens
-- Mid-Game-Join-Verhalten in Turn-Logik prüfen
-
-### Priorität 3 — Avatar langfristig
+### Priorität 3 — Karten-/Stapel-UX
 
 - Selfie-Avatar-Backlog (`players[].avatarUri`)
 - Optional: Avatar-Rotation Richtung Tischmitte
@@ -241,21 +344,22 @@ Do **not** commit if lint reports errors.
 
 | File | Issue |
 |------|-------|
-| `app/game.js` | `handleCloseVoteResult` missing in `gameActions.js` |
-| `app/settings/timers.js` | `formValues` undefined → use `values` |
+| `MagicCardModal.js` | 7× `react-hooks/exhaustive-deps` |
+| `useGameFirebase.js` | 2× `react-hooks/exhaustive-deps` (Legacy-Hook) |
 
-See `docs/testing.md` for manual smoke-test steps.
+0 errors as of 2026-06-09. See `docs/testing.md`.
 
 ---
 
 ## Release
 
-- No `eas.json` yet — add when configuring EAS Build
+- **Test-APK:** [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) — EAS + `buildType: apk`, `eas.json` im Repo
+- `android.package`: `com.wodkao.app` — konfiguriert
 - Version in `app.json` / `package.json`
-- Set `PACKAGE_NAME` / `BUNDLE_ID` before store upload
+- Set `PACKAGE_NAME` / `BUNDLE_ID` before **store** upload (nicht nötig für sideload-APK)
 - Alcohol/drinking theme: review store policies before public release
 
-See `docs/release-workflow.md`.
+See [docs/release-workflow.md](docs/release-workflow.md) (Store) and [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) (APK).
 
 ---
 
@@ -274,13 +378,14 @@ See `docs/release-workflow.md`.
 | Schritt | Implementierung | Status |
 |---------|-----------------|--------|
 | Lobby erstellen | 5-stelliger Code → Firestore `lobbies/{code}` | ✅ Vollständig |
-| Lobby beitreten | Code + Spielername, Duplikat-Check | ✅ Vollständig |
+| Lobby beitreten | Code + Spielername, Duplikat-Check, Ablauf-Check (2h) | ✅ Vollständig |
+| Lobby verlassen | Button „Lobby verlassen“, Host-Übergabe | ✅ Neu |
 | Ready-System | Toggle pro Spieler | ✅ Vollständig |
 | Host startet | Nur wenn alle ready | ✅ Vollständig |
-| Kartenverteilung | `randomMonster()` + `randomTrap()` pro Spieler aus Google Sheets | ✅ Funktional (braucht Netz) |
-| Redirect zu Game | `onSnapshot` für alle Spieler bei `status: "playing"` | ✅ Vollständig |
+| Kartenverteilung | Keine — Start mit leeren Händen; Decks `monsterDeck` + `saufDeck` | ✅ Neu |
+| Redirect zu Game | `onSnapshot` bei `status: "playing"` (inkl. Setup-Phasen) | ✅ |
 
-**Firestore-Lobby-Felder:** `players[]`, `status`, `turn`, `round`, `timers`, Timer-Starttimestamps, `effectsUsed`, `discardPile`
+**Firestore-Lobby-Felder:** `players[]`, `status` (`waiting`|`playing`|`finished`|`expired`), `createdAt`, `lastActivityAt`, `turn`, `round`, `timers`, Timer-Starttimestamps, `effectsUsed`, `discardPile`
 
 ### Kartenlogik
 
@@ -293,23 +398,24 @@ Bild-URL via GitHub Pages: jerrichoz.github.io/DrinkingGameOh/assets/images/card
 
 - `fetchAllCards()` in `src/utils/cards.js` — lädt Monster, Traps, Magic
 - `loadCards()` in `src/utils/gameLogic.js` — **In-Memory-Cache** (`cachedCards`), nur Session
-- Ziehen: `randomMagic()` / `randomMonster()` / `randomTrap()` — zufällig aus gefiltertem Typ
+- Ziehen: aus `saufDeck` (Magie/Falle) oder `monsterDeck` (Startphase)
+- Legacy-Hilfsfunktionen `randomMagic()` etc. noch vorhanden
 
 **Im Spiel:**
 
 | Kartenart | Wann | Wo gespeichert |
 |-----------|------|----------------|
-| Monster | Bei Spielstart | `players[].monster` (Firestore) |
-| Falle | Bei Spielstart | `players[].trap` (Firestore) |
-| Magie | Zugspieler zieht | `lobby.lastMagic` (Firestore) |
-| Ablagestapel | Nach Discard | `lobby.discardPile[]` (Firestore) |
+| Monster | Phase `drawingMonsters` | `players[].monster` |
+| Falle | Zug aus Saufstapel (Typ TRAP) | `players[].trap` (verdeckt) |
+| Magie | Zug aus Saufstapel (Typ MAGIC) | `lobby.lastMagic` |
+| Ablagestapel | Nach Discard / ersetzte Falle | `lobby.discardPile[]` |
 
-**Zugablauf (aktiver Spieler):**
+**Zugablauf (aktiver Spieler, Phase `playing`):**
 
-1. `handleDraw` → Magiekarte ziehen → Modal lokal + `lastMagic` in Firestore
-2. `handleShow` → Karte aufdecken → Reaktionsphase starten
-3. Andere Spieler reagieren (Trinken, Monster/Falle aktivieren, Done)
-4. `handleDiscard` → Karte auf Ablagestapel, `turn` weiter, `round`++ wenn Runde voll
+1. `handleDraw` → Karte vom **Saufstapel**
+2. **MAGIC:** wie bisher — Aufdecken, Reaktion, Ablegen
+3. **TRAP:** verdeckt neben Monster legen, Zug endet
+4. `handleDiscard` (nur Magie) → Ablage, nächster Spieler
 
 **Lokale Assets:** ~70 PNGs in `assets/images/cards/` — werden vom Code **nicht** genutzt; Bilder kommen remote von GitHub Pages.
 
@@ -399,11 +505,9 @@ Env-Variablen: `EXPO_PUBLIC_GOOGLE_SHEET_ID`, `EXPO_PUBLIC_GOOGLE_GID_*`, Fireba
 
 **Teilweise implementiert:**
 
-- Timer-Settings-Screen (Code da, nicht erreichbar, Save kaputt)
+- Timer-Settings-Screen (Code da, nicht erreichbar — Save funktional)
 - `effectsUsed.monster` wird gesetzt, aber UI blockiert nicht erneute Aktivierung
 - Fallen der Gegner immer verdeckt (`card_back.png`) — kein Reveal-Mechanismus
-- `handleCloseVoteResult` fehlt — OK-Button in Vote-Ergebnis-Overlay crasht potenziell
-- `GameBoard` nutzt `lastMagic.title`, Karten haben aber `.name` → leerer Titel
 - Ungenutzter Legacy-Code: `useGameLogic`, `useGameFirebase`, `EffectButtons`, `MagicStack`, `PlayerBoard`
 - Doppelte Voting-UI (`VotePanel` + `MagicCardModal`)
 - `reactions`-Init bei Lobby-Create nur für Host, nicht alle Spieler
@@ -486,66 +590,45 @@ npm start       # ✅ Expo Dev Server gestartet
 
 ### UX / Game-Screen (Pokertisch)
 
-*Stand: 2026-06-09*
+*Stand: 2026-06-09 — Slot-Layout*
 
 | Element | Status |
 |---------|--------|
-| Spieler kreisförmig/elliptisch (`tableLayout.js`, max. 8) | ✅ |
+| Slot-Layout (`tableSlotLayout.js`, `GameBoard.js`, max. 8) | ✅ |
 | Kompakte Lobby-Code-HUD-Box (`LobbyCodeBadge`, oben rechts) | ✅ |
-| Rundenanzeige in Tischmitte über Stapeln | ✅ |
+| Rundenanzeige im Tisch | ✅ |
 | HUD blockiert Spielfeld nicht mehr | ✅ |
-| Join während `status: playing` (Monster+Falle zuweisen) | ✅ |
+| Join während `status: playing` | ❌ **Blockiert** in `joinLobby` |
 | Sichtbare Kartenstapel auf dem Tisch | ✅ |
-| Magiestapel / Fallenkarten / Ablage | ✅ (`StackPile.js`) |
+| Saufstapel / Ablage (getrennte Slots) | ✅ (`StackPile.js`) |
+| Ziehen-Button eigener Slot (nicht Monster-Slot) | ✅ |
 | Dynamische Stapelgröße (0–4 echt, 5+ max. 5 sichtbar) | ✅ |
 | Leeres Stapelfeld bei 0 Karten | ✅ gestrichelter Platzhalter |
-| Anzahl in Klammern (echte Count) | ✅ (siehe Datenquellen unten) |
-| PlayerSeat: Karten + Avatar getrennt | ✅ `cardsArea` auf Tisch, `avatarArea` außerhalb |
-| Silhouette-Avatar (Platzhalter) | ✅ `PlayerSilhouette` — Kopf + Körper + Initiale |
-| Namen außerhalb des Tisches | ✅ unter Silhouette im `avatarArea` |
-| Selfie-Avatar | 📋 Backlog — siehe unten |
+| Anzahl in Klammern (echte Count) | ✅ |
+| PlayerSeat: Karten + Avatar getrennt | ✅ Slots relativ zu `tableRect` |
+| Silhouette-Avatar (Platzhalter) | ✅ `PlayerSilhouette` |
+| Selfie-Avatar | 📋 Backlog |
 
-**Stapel auf dem Tisch (Tischmitte, links–mitte–rechts):**
+Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAYOUT_DEBUG=1`
 
-`StackPile` rendert nach `count`:
-- **0** — gestricheltes leeres Kartenfeld + Label `Name (0)`
-- **1–4** — genau so viele versetzte Kartenrückseiten
-- **5+** — maximal 5 sichtbare Layer; Label zeigt echte Anzahl z. B. `Magiestapel (32)`
-- **Ablage** — oberste sichtbare Karte als Gesichtsbild (`topCardImage`), Rest Rückseite
-- Leichte `LayoutAnimation` beim Count-Wechsel (z. B. nach Ablegen)
+**Stapel auf dem Tisch (Slot-Positionen):**
+
+- **Saufstapel** — `centerDeckSlot` (links Mitte)
+- **Ablage** — `centerDiscardSlot` (rechts Mitte)
+- **Ziehen-Button** — `drawButtonSlot` (unter Saufstapel)
+- **Monster** — `topMonsterSlot` / `bottomMonsterSlot` (eigenes Monster zwischen Avatar und Mitte)
+
+`StackPile` rendert nach `count` wie bisher (0 = Platzhalter, 1–4 echt, 5+ max. 5 Layer).
 
 **Anzahl je Stapel — Datenquellen:**
 
-| Stapel | Anzeige | Quelle | Einschränkung |
-|--------|---------|--------|---------------|
-| Magiestapel | `(X)` | `loadCards()` → Anzahl `type === "MAGIC"` | **Nicht** verbleibendes Deck. Firestore speichert kein Magic-Deck; `randomMagic()` zieht ohne Abzug aus dem Pool. X = Pool-Größe aus Google Sheets. |
-| Fallenkarten | `(X)` | `players.filter(p => p.trap).length` | Verdeckte Fallen bei Spielern, kein zentraler Reservestapel im State. Sinkt z. B. nach erfolgreichem Trap-Vote. |
-| Ablage | `(X)` | `lobby.discardPile.length` | Exakt. |
+| Stapel | Anzeige | Quelle |
+|--------|---------|--------|
+| Saufstapel | `(X)` | `lobby.saufDeck.length` |
+| Ablage | `(X)` | `lobby.discardPile.length` |
+| Fallen (Spieler) | `(X)` | `players.filter(p => p.trap).length` |
 
-**Aktuelle Magic-Karte:** Verdeckt über Magiestapel nach Ziehen; aufgedeckt oberhalb des Ablagestapels (klickbar → Modal). Ablegen-Logik unverändert (`handleDiscard`).
-
-**PlayerSeat — drei Ebenen:**
-
-1. **Tisch** — `getTableEllipse()`: `radiusX = width×0.42`, `radiusY = height×0.4` (gleiche Quelle wie Filz-View)
-2. **Karten** — `(radiusX − insetX) × cos θ`, `(radiusY − insetY) × sin θ`; `insetX/Y` dynamisch aus Kartengröße + `seatWidth` (nicht Edge-Point des Avatars)
-3. **Avatar** — Randpunkt `(radius × cos θ, radius × sin θ)` + äußere Ellipsen-Normale × `(blockH/2 + 4px)` → berührt Tischrand von außen
-
-Zug: grüner Glow nur am Avatar, Karten neutral.
-
-**Avatar (Backlog):**
-
-> **Selfie-Avatar:** Spieler macht vor Spielstart ein Selfie, Gesicht wird als Avatar am Tisch angezeigt.
-
-Aktuell: `PlayerSilhouette` (keine Assets). Später: `players[].avatarUri` in Firestore — **nicht implementiert** (keine Kamera, kein Upload).
-
-**Join nach Spielstart:** Nicht in `joinLobby` blockiert; Redirect via `onSnapshot` in `lobby.js`. Mid-Game-Joiner erhalten `randomMonster()` + `randomTrap()`, `ready: true`, max. 8 Spieler.
-
-**HUD (kompakt):**
-
-- **Lobby-Code** — schwebende Box oben rechts (`Lobby: XXXXX`, Kopieren, max. ~200 px), halbtransparent
-- **Zugstatus** — kompakt oben links, max. 55 % Breite (kein Konflikt mit Lobby-Box)
-- **Runde** — zentriert im Tisch über Fallen/Magie/Ablage (`GameBoard`), nicht mehr im Top-Banner
-- **Spielbereich-Offset** — `TOP_HUD_HEIGHT = 80` + `TABLE_SHIFT_Y = 50`; Tisch/Ellipse/Seats/Stapel rutschen als Gruppe nach unten (`getTableEllipse`)
+**Join nach Spielstart:** **Blockiert** in `joinLobby` wenn `status === "playing"`.
 
 **Karten-Presence (Denkblase):**
 
@@ -576,7 +659,8 @@ Aktuell: `PlayerSilhouette` (keine Assets). Später: `players[].avatarUri` in Fi
 | Hoch | Ersten Push nach `WodkaO` vorbereiten (nach Lint-Fix + Commit) |
 | Mittel | Local card data fallback (reduce Sheets dependency) |
 | Mittel | Add `typecheck` / `test` scripts when tests exist |
-| Niedrig | Add `eas.json` for release builds |
+| ~~Niedrig~~ | ~~Add `eas.json` for release builds~~ — ✅ erledigt |
+| Niedrig | EAS Login + erster APK-Build (`eas build --profile preview`) |
 | Niedrig | App slug/display name konsistent benennen |
 
 ---

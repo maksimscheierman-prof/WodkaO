@@ -22,6 +22,7 @@ export default function PlayerSeat({
   avatarBlockHeight = 136,
   avatarLabelWidth = 120,
   isCurrentTurn,
+  isStartPlayer = false,
   isMe,
   onSelectCard,
   compact = false,
@@ -64,6 +65,7 @@ export default function PlayerSeat({
                   player.name
                 )
               }
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
             >
               <Image
                 source={getImageSource(player.monster.image)}
@@ -82,6 +84,7 @@ export default function PlayerSeat({
               onPress={() =>
                 onSelectCard({ ...player.trap, type: "trap" }, player.name)
               }
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
             >
               <Image
                 source={require("../../assets/images/card_back.png")}
@@ -106,7 +109,7 @@ export default function PlayerSeat({
           top: avatarPosition.y - avatarBlockHeight / 2,
           width: avatarLabelWidth,
           alignItems: "center",
-          zIndex: 1,
+          zIndex: 4,
         }}
       >
         {bubbleText ? (
@@ -116,6 +119,7 @@ export default function PlayerSeat({
               bottom: avatarBlockHeight - 12,
               alignItems: "center",
               width: avatarLabelWidth,
+              zIndex: 5,
             }}
           >
             <ViewingCardBubble
@@ -145,6 +149,11 @@ export default function PlayerSeat({
           {player.name}
           {isMe ? " (Du)" : ""}
         </Text>
+        {isStartPlayer && !isCurrentTurn && (
+          <Text style={{ color: "#ffe08a", fontSize: 9, marginTop: 1 }}>
+            🏁 Start
+          </Text>
+        )}
         {isCurrentTurn && (
           <Text style={{ color: "#7fff7f", fontSize: 10, marginTop: 2 }}>
             am Zug

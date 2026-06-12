@@ -3,9 +3,11 @@ import { StyleSheet } from "react-native";
 export const gameStyles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
     paddingHorizontal: 8,
     paddingTop: 6,
     paddingBottom: 6,
+    overflow: "hidden",
   },
   playerName: {
     color: "#fff",

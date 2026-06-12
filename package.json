@@ -8,7 +8,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:lobby-lifecycle": "node ./scripts/test_lobby_lifecycle.js",
+    "test:table-layout": "node ./scripts/test_table_layout.js",
+    "cleanup:lobbies": "node ./scripts/cleanup_old_lobbies.js",
+    "cleanup-lobbies": "node ./scripts/cleanup_old_lobbies.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -47,6 +51,7 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "firebase-admin": "^14.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

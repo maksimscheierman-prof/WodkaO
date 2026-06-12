@@ -1,4 +1,5 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function VotePanel({
   lobby,
@@ -6,26 +7,43 @@ export default function VotePanel({
   handleVote,
   actionDisabled = false,
 }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const compact = screenWidth < 400;
+
   if (!lobby) return null;
 
-  // Wenn keine Abstimmung aktiv ist → nichts anzeigen
   if (!lobby.activeEffect && !lobby.voteResult) return null;
 
   return (
     <View
-      style={{
-        position: "absolute",
-        top: 20,
-        left: 20,
-        backgroundColor: "rgba(0,0,0,0.7)",
-        padding: 10,
-        borderRadius: 8,
-        width: 200,
-      }}
+      style={
+        compact
+          ? {
+              position: "absolute",
+              left: 8,
+              right: 8,
+              bottom: Math.max(8, insets.bottom + 4),
+              backgroundColor: "rgba(0,0,0,0.85)",
+              padding: 12,
+              borderRadius: 10,
+              zIndex: 25,
+            }
+          : {
+              position: "absolute",
+              top: Math.max(72, insets.top + 56),
+              left: 12,
+              backgroundColor: "rgba(0,0,0,0.7)",
+              padding: 12,
+              borderRadius: 8,
+              width: 220,
+              zIndex: 25,
+            }
+      }
     >
       {lobby.votingOpen && lobby.activeEffect ? (
         <>
-          <Text style={{ color: "#fff", fontSize: 14, marginBottom: 5 }}>
+          <Text style={{ color: "#fff", fontSize: 14, marginBottom: 8 }}>
             Abstimmung: {lobby.activeEffect.card.name}
           </Text>
           <View
@@ -36,10 +54,13 @@ export default function VotePanel({
               disabled={actionDisabled}
               style={{
                 backgroundColor: "#1b5e20",
-                padding: 5,
-                borderRadius: 6,
+                paddingVertical: 10,
+                paddingHorizontal: 8,
+                borderRadius: 8,
                 flex: 1,
-                marginRight: 5,
+                marginRight: 6,
+                minHeight: 44,
+                justifyContent: "center",
                 opacity: actionDisabled ? 0.5 : 1,
               }}
             >
@@ -52,9 +73,12 @@ export default function VotePanel({
               disabled={actionDisabled}
               style={{
                 backgroundColor: "#b71c1c",
-                padding: 5,
-                borderRadius: 6,
+                paddingVertical: 10,
+                paddingHorizontal: 8,
+                borderRadius: 8,
                 flex: 1,
+                minHeight: 44,
+                justifyContent: "center",
                 opacity: actionDisabled ? 0.5 : 1,
               }}
             >
@@ -63,7 +87,7 @@ export default function VotePanel({
               </Text>
             </TouchableOpacity>
           </View>
-          <Text style={{ color: "#aaa", fontSize: 12, marginTop: 5 }}>
+          <Text style={{ color: "#aaa", fontSize: 12, marginTop: 6 }}>
             Deine Stimme zählt nur einmal
           </Text>
         </>

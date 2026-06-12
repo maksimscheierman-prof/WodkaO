@@ -65,8 +65,10 @@ npx eas build --platform android
 npx eas build --platform ios
 ```
 
+**Test-APK (MVP, sideload):** see [BUILD_ANDROID.md](BUILD_ANDROID.md) — `eas build --platform android --profile preview` with `buildType: apk`.
+
 ## Notes
 
-- No `eas.json` yet — add when setting up EAS Build
+- `eas.json` vorhanden — siehe [BUILD_ANDROID.md](BUILD_ANDROID.md) für Preview-APK-Build
 - Native `android/` and `ios/` folders are gitignored (Expo managed workflow)
 - Firebase is the current backend — not Supabase

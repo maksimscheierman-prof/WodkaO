@@ -1,6 +1,7 @@
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function Layout() {
   const [fontsLoaded] = useFonts({
@@ -8,7 +9,6 @@ export default function Layout() {
   });
 
   if (!fontsLoaded) {
-    // während die Schrift lädt
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" />
@@ -16,5 +16,9 @@ export default function Layout() {
     );
   }
 
-  return <Stack />;
+  return (
+    <SafeAreaProvider>
+      <Stack />
+    </SafeAreaProvider>
+  );
 }

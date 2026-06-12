@@ -12,7 +12,7 @@ export default function LobbyCodeBadge({ lobbyId, style }) {
   const canCopy = Platform.OS === "web" && typeof navigator !== "undefined";
   const { width: screenWidth } = useWindowDimensions();
   const compact = screenWidth < 400;
-  const boxWidth = compact ? 168 : 200;
+  const boxWidth = screenWidth < 360 ? 148 : compact ? 168 : 200;
 
   const handleCopy = async () => {
     if (!canCopy || !lobbyId) return;

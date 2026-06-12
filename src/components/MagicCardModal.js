@@ -1,7 +1,23 @@
 import { useEffect, useState } from "react";
-import { Image, Modal, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getTimers } from "../config/timers";
-import Card from "./Card";
+import {
+  CARD_BASE_HEIGHT,
+  CARD_BASE_WIDTH,
+  getModalCardDimensions,
+  getPreviewImageSize,
+  shouldStackReactionCards,
+} from "../utils/responsive";
+import ResponsiveCard from "./ResponsiveCard";
 
 export default function MagicCardModal({
   lobby,
@@ -20,6 +36,20 @@ export default function MagicCardModal({
   actionDisabled = false,
 }) {
   const actionOpacity = actionDisabled ? 0.5 : 1;
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const previewSize = getPreviewImageSize(screenWidth, screenHeight);
+  const stackReactionCards = shouldStackReactionCards(screenWidth, screenHeight);
+  const trapBackSize = getModalCardDimensions(screenWidth, screenHeight, 280);
+
+  const touchBtn = {
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  };
 
   //Hooks
   const src = (img) => (typeof img === "string" ? { uri: img } : img);
@@ -163,18 +193,26 @@ export default function MagicCardModal({
           style={{
             flex: 1,
             backgroundColor: "rgba(0,0,0,0.9)",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: 20,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
           }}
         >
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 16,
+            }}
+            bounces={false}
+          >
           <Image
             source={
               typeof eff.card?.image === "string"
                 ? { uri: eff.card.image }
                 : eff.card?.image
             }
-            style={{ width: 200, height: 300 }}
+            style={previewSize}
           />
           <Text style={{ color: "#fff", marginTop: 10, fontSize: 18 }}>
             {eff.card?.name}
@@ -183,22 +221,21 @@ export default function MagicCardModal({
             Effekt von {eff.player} zulassen?
           </Text>
 
-          <View style={{ flexDirection: "row", marginTop: 20 }}>
+          <View style={{ flexDirection: "row", marginTop: 20, flexWrap: "wrap", justifyContent: "center" }}>
             <TouchableOpacity
               onPress={() => handleVote("ja")}
               disabled={actionDisabled}
               style={{
                 backgroundColor: "#1b5e20",
-                padding: 10,
-                borderRadius: 8,
-                marginHorizontal: 10,
+                marginHorizontal: 8,
+                marginVertical: 4,
                 opacity: actionOpacity,
+                ...touchBtn,
               }}
             >
-              <Text style={{ color: "#bbb", marginTop: 8 }}>
+              <Text style={{ color: "#bbb", marginBottom: 4 }}>
                 Auto-Ja in {fmt(voteLeft)}
               </Text>
-
               <Text style={{ color: "#fff" }}>
                 {actionDisabled ? "⏳" : "Ja ✅"}
               </Text>
@@ -208,10 +245,10 @@ export default function MagicCardModal({
               disabled={actionDisabled}
               style={{
                 backgroundColor: "#b71c1c",
-                padding: 10,
-                borderRadius: 8,
-                marginHorizontal: 10,
+                marginHorizontal: 8,
+                marginVertical: 4,
                 opacity: actionOpacity,
+                ...touchBtn,
               }}
             >
               <Text style={{ color: "#fff" }}>
@@ -219,6 +256,7 @@ export default function MagicCardModal({
               </Text>
             </TouchableOpacity>
           </View>
+          </ScrollView>
         </View>
       </Modal>
     );
@@ -236,15 +274,23 @@ export default function MagicCardModal({
           style={{
             flex: 1,
             backgroundColor: "rgba(0,0,0,0.85)",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: 20,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
           }}
         >
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 16,
+            }}
+            bounces={false}
+          >
           {!!eff?.card && (
             <Image
               source={src(eff.card.image)}
-              style={{ width: 200, height: 300 }}
+              style={previewSize}
             />
           )}
           <Text
@@ -273,9 +319,8 @@ export default function MagicCardModal({
               style={{
                 marginTop: 20,
                 backgroundColor: "#D9C9A3",
-                padding: 10,
-                borderRadius: 8,
                 opacity: actionOpacity,
+                ...touchBtn,
               }}
             >
               <Text style={{ color: "#000" }}>
@@ -293,6 +338,7 @@ export default function MagicCardModal({
               Automatisch OK in {fmt(ackLeft)}
             </Text>
           )}
+          </ScrollView>
         </View>
       </Modal>
     );
@@ -317,14 +363,22 @@ export default function MagicCardModal({
         style={{
           flex: 1,
           backgroundColor: "rgba(0,0,0,0.85)",
-          justifyContent: "center",
-          alignItems: "center",
-          paddingHorizontal: 20,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
         }}
       >
-        {/* --- Karte anzeigen --- */}
-
-        <Card
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 12,
+            paddingVertical: 16,
+          }}
+          bounces={false}
+        >
+        <ResponsiveCard
+          verticalPad={stackReactionCards ? 320 : 220}
           title={card.name}
           description={card.effect}
           atk={card.atk}
@@ -343,9 +397,8 @@ export default function MagicCardModal({
             style={{
               marginTop: 15,
               backgroundColor: "#D9C9A3",
-              padding: 10,
-              borderRadius: 8,
               opacity: actionOpacity,
+              ...touchBtn,
             }}
           >
             <Text>{actionDisabled ? "⏳ ..." : "👁️ Zeigen"}</Text>
@@ -370,36 +423,29 @@ export default function MagicCardModal({
                   disabled={actionDisabled}
                   style={{
                     backgroundColor: "#D9C9A3",
-                    paddingVertical: 10,
-                    paddingHorizontal: 20,
-                    borderRadius: 8,
                     marginBottom: 10,
-                    width: 160,
-                    alignItems: "center",
+                    minWidth: 160,
                     opacity: actionOpacity,
+                    ...touchBtn,
                   }}
                 >
                   <Text>{actionDisabled ? "⏳ ..." : "🍺 Trinken (+1)"}</Text>
                 </TouchableOpacity>
 
-                {/* Untere Reihe: Monster + Falle */}
                 <View
                   style={{
-                    flexDirection: "row",
-                    justifyContent: "space-evenly",
+                    flexDirection: stackReactionCards ? "column" : "row",
+                    justifyContent: "center",
+                    alignItems: "center",
                     width: "100%",
+                    gap: stackReactionCards ? 12 : 0,
                   }}
                 >
-                  {/* MONSTER (klickbar: Effekt aktivieren) */}
-                  <View
-                    style={{
-                      alignItems: "center",
-                      transform: [{ scale: 0.9 }],
-                    }}
-                  >
+                  <View style={{ alignItems: "center" }}>
                     {me?.monster && (
                       <>
-                        <Card
+                        <ResponsiveCard
+                          verticalPad={380}
                           title={me.monster.name}
                           description={me.monster.effect}
                           atk={me.monster.atk}
@@ -410,17 +456,14 @@ export default function MagicCardModal({
                           image={me.monster.image}
                         />
 
-                        {/* ⬇️ vorher disabled – jetzt aktiv */}
                         <TouchableOpacity
                           onPress={() => handleActivateEffect(me.monster)}
                           disabled={actionDisabled}
                           style={{
                             marginTop: 5,
                             backgroundColor: "#337",
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderRadius: 6,
                             opacity: actionOpacity,
+                            ...touchBtn,
                           }}
                         >
                           <Text style={{ color: "#fff" }}>
@@ -431,20 +474,15 @@ export default function MagicCardModal({
                     )}
                   </View>
 
-                  {/* FALLE (verdeckt / aufdeckbar) */}
-                  <View
-                    style={{
-                      alignItems: "center",
-                      transform: [{ scale: 0.9 }],
-                    }}
-                  >
+                  <View style={{ alignItems: "center" }}>
                     {me?.trap && (
                       <>
                         <TouchableOpacity
                           onPress={() => setTrapRevealed((prev) => !prev)}
                         >
                           {trapRevealed ? (
-                            <Card
+                            <ResponsiveCard
+                              verticalPad={380}
                               title={me.trap.name}
                               description={me.trap.effect}
                               atk={me.trap.atk}
@@ -457,25 +495,29 @@ export default function MagicCardModal({
                           ) : (
                             <View
                               style={{
-                                width: 320, // leicht größer, damit scale 0.9 passt
-                                height: 550,
+                                width: trapBackSize.width,
+                                height: trapBackSize.height,
                                 justifyContent: "center",
                                 alignItems: "center",
                               }}
                             >
-                              <Image
-                                source={require("../../assets/images/card_back.png")}
+                              <View
                                 style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  borderRadius: 16,
-                                  shadowColor: "#000",
-                                  shadowOpacity: 0.5,
-                                  shadowOffset: { width: 0, height: 4 },
-                                  shadowRadius: 6,
+                                  width: CARD_BASE_WIDTH,
+                                  height: CARD_BASE_HEIGHT,
+                                  transform: [{ scale: trapBackSize.scale }],
                                 }}
-                                resizeMode="cover"
-                              />
+                              >
+                                <Image
+                                  source={require("../../assets/images/card_back.png")}
+                                  style={{
+                                    width: CARD_BASE_WIDTH,
+                                    height: CARD_BASE_HEIGHT,
+                                    borderRadius: 16,
+                                  }}
+                                  resizeMode="cover"
+                                />
+                              </View>
                             </View>
                           )}
                         </TouchableOpacity>
@@ -486,10 +528,8 @@ export default function MagicCardModal({
                           style={{
                             marginTop: 5,
                             backgroundColor: "#A33",
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderRadius: 6,
                             opacity: actionOpacity,
+                            ...touchBtn,
                           }}
                         >
                           <Text style={{ color: "#fff" }}>
@@ -510,12 +550,10 @@ export default function MagicCardModal({
                   disabled={actionDisabled}
                   style={{
                     backgroundColor: "#D9C9A3",
-                    padding: 10,
-                    borderRadius: 8,
                     marginTop: 20,
-                    width: 160,
-                    alignItems: "center",
+                    minWidth: 160,
                     opacity: actionOpacity,
+                    ...touchBtn,
                   }}
                 >
                   <Text>{actionDisabled ? "⏳ ..." : "✅ Done"}</Text>
@@ -548,9 +586,8 @@ export default function MagicCardModal({
                 style={{
                   marginTop: 20,
                   backgroundColor: "#d98c8c",
-                  padding: 10,
-                  borderRadius: 8,
                   opacity: actionOpacity,
+                  ...touchBtn,
                 }}
               >
                 <Text>
@@ -574,14 +611,22 @@ export default function MagicCardModal({
               right: 0,
               bottom: 0,
               backgroundColor: "rgba(0,0,0,0.9)",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: 20,
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
             }}
           >
+            <ScrollView
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 16,
+              }}
+              bounces={false}
+            >
             <Image
               source={lobby.activeEffect.card.image}
-              style={{ width: 200, height: 300 }}
+              style={previewSize}
               resizeMode="cover"
             />
             <Text style={{ color: "#fff", marginTop: 10, fontSize: 18 }}>
@@ -591,16 +636,15 @@ export default function MagicCardModal({
               Effekt von {lobby.activeEffect.player} zulassen?
             </Text>
 
-            <View style={{ flexDirection: "row", marginTop: 20 }}>
+            <View style={{ flexDirection: "row", marginTop: 20, flexWrap: "wrap", justifyContent: "center" }}>
               <TouchableOpacity
                 onPress={() => handleVote("ja")}
                 disabled={actionDisabled}
                 style={{
                   backgroundColor: "#1b5e20",
-                  padding: 10,
-                  borderRadius: 8,
-                  marginHorizontal: 10,
+                  marginHorizontal: 8,
                   opacity: actionOpacity,
+                  ...touchBtn,
                 }}
               >
                 <Text style={{ color: "#fff" }}>
@@ -613,10 +657,9 @@ export default function MagicCardModal({
                 disabled={actionDisabled}
                 style={{
                   backgroundColor: "#b71c1c",
-                  padding: 10,
-                  borderRadius: 8,
-                  marginHorizontal: 10,
+                  marginHorizontal: 8,
                   opacity: actionOpacity,
+                  ...touchBtn,
                 }}
               >
                 <Text style={{ color: "#fff" }}>
@@ -624,6 +667,7 @@ export default function MagicCardModal({
                 </Text>
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
         )}
 
@@ -637,12 +681,19 @@ export default function MagicCardModal({
               right: 0,
               bottom: 0,
               backgroundColor: "rgba(0,0,0,0.85)",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: 20,
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
             }}
           >
-            {/* Zeige die aktivierte Karte (Trap/Monster), nicht die Magie */}
+            <ScrollView
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 16,
+              }}
+              bounces={false}
+            >
             {!!lobby.resolvedEffect?.card && (
               <Image
                 source={
@@ -650,7 +701,7 @@ export default function MagicCardModal({
                     ? { uri: lobby.resolvedEffect.card.image }
                     : lobby.resolvedEffect.card.image
                 }
-                style={{ width: 200, height: 300 }}
+                style={previewSize}
                 resizeMode="cover"
               />
             )}
@@ -672,17 +723,18 @@ export default function MagicCardModal({
               style={{
                 marginTop: 20,
                 backgroundColor: "#D9C9A3",
-                padding: 10,
-                borderRadius: 8,
                 opacity: actionOpacity,
+                ...touchBtn,
               }}
             >
               <Text style={{ color: "#000" }}>
                 {actionDisabled ? "⏳" : "OK"}
               </Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
         )}
+        </ScrollView>
       </View>
     </Modal>
   );

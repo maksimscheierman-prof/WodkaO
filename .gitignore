@@ -72,6 +72,8 @@ credentials/
 sentry.properties
 *service-account*.json
 *serviceAccount*.json
+firebase-service-account*.json
+*.firebase-admin.json
 **/credentials.json
 client_secret*.json
 
