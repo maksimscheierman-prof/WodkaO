@@ -114,3 +114,7 @@ app-example
 .env
 .env.*
 !.env.example
+
+# Local working files (not referenced by app/docs)
+imgrightnow.jpeg
+yugioh_trinkspiel_vorlage.xlsx

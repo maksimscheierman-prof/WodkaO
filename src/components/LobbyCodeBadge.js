@@ -1,98 +1,110 @@
+import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
 import {
   Platform,
+  Pressable,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
 
+async function copyLobbyCode(code) {
+  const text = String(code ?? "");
+  if (!text) return false;
+  if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+  await Clipboard.setStringAsync(text);
+  return true;
+}
+
 export default function LobbyCodeBadge({ lobbyId, style }) {
   const [copied, setCopied] = useState(false);
-  const canCopy = Platform.OS === "web" && typeof navigator !== "undefined";
   const { width: screenWidth } = useWindowDimensions();
   const compact = screenWidth < 400;
-  const boxWidth = screenWidth < 360 ? 148 : compact ? 168 : 200;
+  const narrow = screenWidth < 360;
+
+  const boxWidth = narrow
+    ? Math.min(screenWidth * 0.52, 220)
+    : compact
+      ? Math.min(screenWidth * 0.48, 280)
+      : Math.min(screenWidth * 0.38, 360);
+
+  const minHeight = narrow ? 72 : compact ? 80 : 88;
 
   const handleCopy = async () => {
-    if (!canCopy || !lobbyId) return;
+    if (!lobbyId || copied) return;
     try {
-      await navigator.clipboard.writeText(String(lobbyId));
+      await copyLobbyCode(lobbyId);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 1800);
     } catch (e) {
       console.warn("[COPY] Clipboard failed", e);
     }
   };
 
+  const codeLabel = lobbyId ? `Lobby: ${lobbyId}` : "Lobby: …";
+  const hintText = copied
+    ? "Kopiert!"
+    : "(klicken zum Kopieren des Codes)";
+
   return (
-    <View
-      style={[
+    <Pressable
+      onPress={handleCopy}
+      accessibilityRole="button"
+      accessibilityLabel="Lobby-Code kopieren"
+      accessibilityHint="Kopiert den Lobby-Code in die Zwischenablage"
+      style={({ pressed, hovered }) => [
         {
           width: boxWidth,
-          maxWidth: 220,
-          backgroundColor: "rgba(0,0,0,0.65)",
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: "rgba(217,201,163,0.5)",
-          paddingVertical: compact ? 6 : 8,
-          paddingHorizontal: compact ? 8 : 10,
+          minHeight,
+          backgroundColor: pressed
+            ? "rgba(30,22,12,0.88)"
+            : hovered && Platform.OS === "web"
+              ? "rgba(0,0,0,0.78)"
+              : "rgba(0,0,0,0.72)",
+          borderRadius: 14,
+          borderWidth: 1.5,
+          borderColor: copied
+            ? "rgba(127,255,127,0.75)"
+            : "rgba(217,201,163,0.55)",
+          paddingVertical: narrow ? 10 : 12,
+          paddingHorizontal: narrow ? 12 : 16,
+          justifyContent: "center",
+          ...(Platform.OS === "web"
+            ? { cursor: "pointer", transition: "background-color 0.15s ease" }
+            : {}),
         },
         style,
       ]}
     >
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 6,
-        }}
-      >
+      <View style={{ flex: 1, justifyContent: "center" }}>
         <Text
           style={{
             color: "#ffe08a",
-            fontSize: compact ? 13 : 14,
-            fontWeight: "bold",
-            letterSpacing: 1,
-            flexShrink: 1,
+            fontSize: narrow ? 17 : compact ? 19 : 22,
+            fontWeight: "800",
+            letterSpacing: 1.2,
           }}
           numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
         >
-          Lobby: {lobbyId}
+          {codeLabel}
         </Text>
-        {canCopy && (
-          <TouchableOpacity
-            onPress={handleCopy}
-            style={{
-              backgroundColor: "#D9C9A3",
-              paddingHorizontal: compact ? 6 : 8,
-              paddingVertical: 3,
-              borderRadius: 5,
-            }}
-          >
-            <Text
-              style={{
-                color: "#2E1F12",
-                fontSize: compact ? 10 : 11,
-                fontWeight: "bold",
-              }}
-            >
-              {copied ? "✓" : "Kopieren"}
-            </Text>
-          </TouchableOpacity>
-        )}
+        <Text
+          style={{
+            color: copied ? "#7fff7f" : "rgba(200,190,160,0.9)",
+            fontSize: narrow ? 11 : 12,
+            marginTop: 6,
+            fontWeight: copied ? "700" : "500",
+          }}
+          numberOfLines={2}
+        >
+          {hintText}
+        </Text>
       </View>
-      <Text
-        style={{
-          color: "#888",
-          fontSize: compact ? 9 : 10,
-          marginTop: 3,
-        }}
-        numberOfLines={1}
-      >
-        Freunde können beitreten
-      </Text>
-    </View>
+    </Pressable>
   );
 }

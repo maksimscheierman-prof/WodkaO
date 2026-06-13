@@ -1,36 +1,75 @@
-# Projektstruktur — Cleanup & Workspace
+# Projektstruktur — WodkaO / Sauf Viel-Oh
 
-*Kanonische Kopie — identisch mit Parent `docs/project_structure_cleanup.md`*
+*Stand: 2026-06-13 — einheitlicher Projektroot*
 
-Siehe auch Workspace-README im Parent: `../README.md`
+---
 
-## Kurzfassung
+## Aktuelle Struktur
 
-- **Git / App / EAS:** `jahw3-app/` (dieser Ordner)
-- **Cursor Parent-Workspace:** ein Ordner höher (`Sauf Viel-Oh/`)
-- **npm vom Parent:** Root-`package.json` delegiert mit `npm --prefix jahw3-app`
-
-## Cursor öffnen
-
-| Ziel | Ordner |
+| Pfad | Rolle |
 |------|--------|
-| Git/EAS direkt | `jahw3-app` ← **dieser Ordner** |
-| Parent + delegierte npm | `Sauf Viel-Oh` |
+| `Sauf Viel-Oh/` | **Einziges Projektroot** — Git, Expo-App, npm, EAS |
+| `app/`, `src/`, `assets/` | React Native / Expo App |
+| `docs/` | Kanonische Dokumentation |
+| `project.md` | Haupt-Projektdoku |
 
-## npm
+Der frühere Unterordner **`jahw3-app/`** wurde am 2026-06-13 aufgelöst; Inhalt liegt im Root.
 
-Von `jahw3-app/` (direkt):
+---
+
+## npm-Befehle (vom Root)
 
 ```bash
-npm run start
+npm install
+npm start
+npm run web
+npm run android
 npm run lint
+npm run test:lobby-lifecycle
+npm run test:table-layout
+npm run cleanup:lobbies
 ```
 
-Vom Parent:
+Kein `npm --prefix` mehr nötig.
+
+---
+
+## Git
 
 ```bash
-npm run start    # delegiert nach jahw3-app
+cd "Sauf Viel-Oh"
+git status
+git branch
 ```
 
-Vollständige Analyse, Inventar und Lösch-Entscheidungen: Parent-Datei  
-`../docs/project_structure_cleanup.md`
+`.git` liegt im Projektroot (nicht mehr in `jahw3-app/`).
+
+---
+
+## Technische Namen (unverändert)
+
+| Feld | Wert | Hinweis |
+|------|------|---------|
+| npm `name` | `jahw3-app` | package.json — Expo-Projektname |
+| Expo `slug` | `jahw3-app` | app.json |
+| Android package | `com.wodkao.app` | app.json |
+| Repo | WodkaO | GitHub |
+
+---
+
+## Migration 2026-06-13
+
+- `.git` von `jahw3-app/` nach Root verschoben
+- App-Code, Config, `docs/`, `.cursor/`, `.vscode/` konsolidiert
+- Alte Root-`package.json` (Delegator) entfernt
+- `npm install` im Root ausgeführt
+
+Falls ein leerer `jahw3-app/`-Ordner noch sichtbar ist: Cursor/Terminal schließen und Ordner manuell löschen (Dateisperre).
+
+---
+
+## Verwandte Dokumente
+
+- [../project.md](../project.md)
+- [BUILD_ANDROID.md](BUILD_ANDROID.md)
+- [MVP_ROADMAP.md](MVP_ROADMAP.md)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Unit checks for squashed-viewport table layout (mirrors tableLayout.js logic).
+ * Unit checks for table layout + monster edge slots.
  * Run: node scripts/test_table_layout.js
  */
 
@@ -41,6 +41,8 @@ function estimateTableHeight(boardWidth, boardHeight, avatarBlockHeight = 104) {
   let tableW = Math.max(220, boardWidth - 120) * scale.width;
   let tableH = safeH * scale.height;
   tableH = Math.max(MIN_TABLE_HEIGHT, tableH);
+  const edgeMinH = 2 * 20 + 2 * 106 + (88 + 14 + 24);
+  tableH = Math.max(edgeMinH, tableH);
   if (tableH / tableW < MIN_TABLE_ASPECT) {
     tableH = tableW * MIN_TABLE_ASPECT;
   }
@@ -75,9 +77,90 @@ assert(
   chrome.tableH > cursor.tableH * 0.8
 );
 
-if (failed > 0) {
-  console.error(`\n${failed} test(s) failed`);
-  process.exit(1);
+async function runMonsterSlotTests() {
+  const {
+    computeTableSlotLayout,
+    getMonsterEdgeMargin,
+    slotsOverlap,
+    MONSTER_EDGE_MARGIN,
+  } = await import("../src/utils/tableSlotLayout.js");
+
+  assert(
+    "edge margin within 15-25",
+    getMonsterEdgeMargin(400) >= MONSTER_EDGE_MARGIN.min &&
+      getMonsterEdgeMargin(400) <= MONSTER_EDGE_MARGIN.max
+  );
+
+  const viewports = [
+    { name: "desktop portrait", w: 390, h: 844, players: 2 },
+    { name: "cursor squashed", w: 900, h: 220, players: 2 },
+    { name: "phone short", w: 360, h: 640, players: 2 },
+  ];
+
+  for (const vp of viewports) {
+    const tableH = estimateTableHeight(vp.w, vp.h).tableH;
+    const tableW = estimateTableHeight(vp.w, vp.h).tableW;
+    const tableRect = {
+      left: 60,
+      top: 80,
+      width: tableW,
+      height: tableH,
+      centerX: 60 + tableW / 2,
+      centerY: 80 + tableH / 2,
+    };
+    const dims = {
+      cardWidth: 72,
+      cardHeight: 100,
+      seatWidth: 140,
+      stackW: 64,
+      stackH: 88,
+      avatarBlockHeight: 104,
+      avatarLabelWidth: 120,
+    };
+    const { slots, hasOverlap } = computeTableSlotLayout(tableRect, dims, vp.players);
+    const edge = slots.monsterEdgeMargin ?? getMonsterEdgeMargin(tableH);
+    const t = tableRect.top;
+    const b = t + tableRect.height;
+
+    assert(
+      `${vp.name}: top monster near top edge`,
+      slots.topMonsterSlot.top >= t + edge - 1
+    );
+    assert(
+      `${vp.name}: bottom monster near bottom edge`,
+      slots.bottomMonsterSlot.bottom <= b - edge + 1
+    );
+    assert(
+      `${vp.name}: monsters not in table center band`,
+      slots.topMonsterSlot.centerY < tableRect.centerY - 8 &&
+        slots.bottomMonsterSlot.centerY > tableRect.centerY + 8
+    );
+    assert(
+      `${vp.name}: deck between monsters vertically`,
+      slots.centerDeckSlot.centerY > slots.topMonsterSlot.bottom &&
+        slots.centerDeckSlot.centerY < slots.bottomMonsterSlot.top
+    );
+    assert(`${vp.name}: no slot overlap`, hasOverlap === false);
+    assert(
+      `${vp.name}: deck clear of top monster`,
+      !slotsOverlap(slots.centerDeckSlot, slots.topMonsterSlot, 2)
+    );
+    assert(
+      `${vp.name}: deck clear of bottom monster`,
+      !slotsOverlap(slots.centerDeckSlot, slots.bottomMonsterSlot, 2)
+    );
+  }
 }
 
-console.log("\nAll table layout checks passed.");
+runMonsterSlotTests()
+  .then(() => {
+    if (failed > 0) {
+      console.error(`\n${failed} test(s) failed`);
+      process.exit(1);
+    }
+    console.log("\nAll table layout checks passed.");
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

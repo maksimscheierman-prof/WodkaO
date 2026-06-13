@@ -1,6 +1,6 @@
 # Release Workflow
 
-Expo/React Native release guide for **WodkaO** (`jahw3-app`).
+Expo/React Native release guide for **WodkaO** (Projektroot `Sauf Viel-Oh/`).
 
 ## Placeholders
 

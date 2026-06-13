@@ -17,10 +17,10 @@
 **Alle npm-/expo-Befehle aus diesem Ordner:**
 
 ```text
-c:\Users\maksi\OneDrive\Desktop\ProjectApps\Games\Sauf Viel-Oh\jahw3-app
+c:\Users\maksi\OneDrive\Desktop\ProjectApps\Games\Sauf Viel-Oh
 ```
 
-Kurz: **`jahw3-app/`** (nicht der übergeordnete `Sauf Viel-Oh`-Ordner).
+Kurz: **`Sauf Viel-Oh/`** (Projektroot — Git + npm).
 
 ---
 
@@ -68,7 +68,7 @@ Vollständige Liste: `.env.example`
 ### Option B — EAS CLI (einmalig pro Variable)
 
 ```bash
-cd jahw3-app
+cd "Sauf Viel-Oh"
 eas env:create --environment preview --name EXPO_PUBLIC_FIREBASE_API_KEY --value "DEIN_WERT" --visibility plaintext
 eas env:create --environment preview --name EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN --value "DEIN_WERT" --visibility plaintext
 eas env:create --environment preview --name EXPO_PUBLIC_FIREBASE_PROJECT_ID --value "DEIN_WERT" --visibility plaintext
@@ -91,7 +91,7 @@ eas env:list --environment preview
 ### Option C — Bulk aus `.env` (lokal, nicht committen)
 
 ```bash
-cd jahw3-app
+cd "Sauf Viel-Oh"
 eas env:push --environment preview --path .env
 ```
 
@@ -120,7 +120,7 @@ eas env:push --environment preview --path .env
 ### Lokal (Entwicklung)
 
 - Node.js LTS
-- `npm install` in `jahw3-app/`
+- `npm install` im Projektroot
 - `.env` (siehe `.env.example`)
 - Optional: Android Studio + Emulator für `npm run android`
 
@@ -154,7 +154,7 @@ Im Repo: Profile `development`, `preview` (APK), `production` (AAB).
 ### 3. EAS Login & Projekt
 
 ```bash
-cd jahw3-app
+cd "Sauf Viel-Oh"
 npm install -g eas-cli
 eas login
 eas init   # falls noch kein Expo-Projekt verknüpft
@@ -167,7 +167,7 @@ Siehe Abschnitt **EAS Environment Variables** oben — alle `EXPO_PUBLIC_*` für
 ### 5. APK bauen
 
 ```bash
-cd jahw3-app
+cd "Sauf Viel-Oh"
 eas build --platform android --profile preview
 ```
 
@@ -197,7 +197,7 @@ MVP: **`buildType: "apk"`** im `preview`-Profil.
 ## Dev-Befehle (ohne APK)
 
 ```bash
-cd jahw3-app
+cd "Sauf Viel-Oh"
 npm install
 npm run web          # Browser
 npm start            # Metro; dann a/w für Android/Web

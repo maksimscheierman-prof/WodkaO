@@ -14,6 +14,7 @@ import { db } from "../firebaseConfig";
 
 import CardModal from "../src/components/CardModal";
 
+import GameActionBar from "../src/components/GameActionBar";
 import GameBoard from "../src/components/GameBoard";
 
 import GameSetupPanel from "../src/components/GameSetupPanel";
@@ -21,8 +22,6 @@ import GameSetupPanel from "../src/components/GameSetupPanel";
 import LobbyCodeBadge from "../src/components/LobbyCodeBadge";
 
 import MagicCardModal from "../src/components/MagicCardModal";
-
-import VotePanel from "../src/components/VotePanel";
 
 import { useAsyncLock } from "../src/hooks/useAsyncLock";
 
@@ -463,7 +462,7 @@ export default function Game() {
 
           ) : playingPhase ? (
 
-            <View style={{ flex: 1, minHeight: 300, paddingTop: boardTopInset }}>
+            <View style={{ flex: 1, minHeight: 300, paddingTop: boardTopInset, position: "relative" }}>
 
             <GameBoard
 
@@ -473,6 +472,16 @@ export default function Game() {
 
               playerName={playerName}
 
+              onSelectCard={handleSelectCard}
+
+              setSelectedCard={setSelectedCard}
+
+            />
+
+            <GameActionBar
+
+              lobby={lobby}
+
               isMyTurn={isMyTurn}
 
               onDraw={onDraw}
@@ -481,11 +490,9 @@ export default function Game() {
 
               onDiscard={onDiscard}
 
-              onSelectCard={handleSelectCard}
-
-              setSelectedCard={setSelectedCard}
-
               actionDisabled={actionLock.isLocked}
+
+              bottomInset={insets.bottom}
 
             />
 
@@ -497,7 +504,7 @@ export default function Game() {
 
 
 
-        {playingPhase && (
+        {playingPhase && me && (
 
         <MagicCardModal
 
@@ -526,24 +533,6 @@ export default function Game() {
           onDone={onDone}
 
           onResultOk={onResultOk}
-
-          actionDisabled={actionLock.isLocked}
-
-        />
-
-        )}
-
-
-
-        {playingPhase && (
-
-        <VotePanel
-
-          lobby={lobby}
-
-          playerName={playerName}
-
-          handleVote={onVote}
 
           actionDisabled={actionLock.isLocked}
 

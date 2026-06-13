@@ -1,6 +1,6 @@
 # AI Workflow
 
-How Cursor and other AI agents should work in **WodkaO** (`jahw3-app`).
+How Cursor and other AI agents should work in **WodkaO** (Projektroot `Sauf Viel-Oh/`).
 
 ## Stack reminder
 
@@ -28,7 +28,7 @@ This is **not** a Flutter project. Do not use `flutter analyze`, `dart test`, or
 
 ### 3. Verify
 
-From `jahw3-app/`:
+From project root:
 
 ```bash
 npm run lint

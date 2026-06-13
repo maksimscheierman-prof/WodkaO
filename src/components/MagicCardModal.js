@@ -51,6 +51,8 @@ export default function MagicCardModal({
     alignItems: "center",
   };
 
+  const playerKey = me?.name ?? "";
+
   //Hooks
   const src = (img) => (typeof img === "string" ? { uri: img } : img);
   const isMagic = (t) => typeof t === "string" && t.toLowerCase() === "magic";
@@ -133,19 +135,21 @@ export default function MagicCardModal({
 
   // Auto-Aktionen:
   useEffect(() => {
+    if (!playerKey) return;
     if (isVoting && voteLeft === 0) {
       const voted =
-        (lobby?.votes?.ja || []).includes(me.name) ||
-        (lobby?.votes?.nein || []).includes(me.name);
+        (lobby?.votes?.ja || []).includes(playerKey) ||
+        (lobby?.votes?.nein || []).includes(playerKey);
       if (!voted) handleVote("ja");
     }
-  }, [isVoting, voteLeft]);
+  }, [isVoting, voteLeft, playerKey]);
 
   useEffect(() => {
-    if (hasResult && ackLeft === 0 && !lobby?.resultAcks?.[me.name]) {
-      onResultOk(me.name);
+    if (!playerKey) return;
+    if (hasResult && ackLeft === 0 && !lobby?.resultAcks?.[playerKey]) {
+      onResultOk(playerKey);
     }
-  }, [hasResult, ackLeft]);
+  }, [hasResult, ackLeft, playerKey]);
 
   useEffect(() => {
     if (!isMyTurn) return;
@@ -162,27 +166,31 @@ export default function MagicCardModal({
     lobby?.lastMagic,
   ]);
 
-  // Auto: Voting → JA nach 30s
   useEffect(() => {
+    if (!playerKey) return;
     if (!isVoting || voteLeft > 0) return;
     const alreadyVoted =
-      (lobby?.votes?.ja || []).includes(me.name) ||
-      (lobby?.votes?.nein || []).includes(me.name);
+      (lobby?.votes?.ja || []).includes(playerKey) ||
+      (lobby?.votes?.nein || []).includes(playerKey);
     if (!alreadyVoted) handleVote("ja");
-  }, [isVoting, voteLeft]);
+  }, [isVoting, voteLeft, playerKey]);
 
   // Auto: Ergebnis → OK nach 10s
   useEffect(() => {
+    if (!playerKey) return;
     if (!hasResult || ackLeft > 0) return;
-    if (!lobby?.resultAcks?.[me.name]) onResultOk(me.name);
-  }, [hasResult, ackLeft]);
+    if (!lobby?.resultAcks?.[playerKey]) onResultOk(playerKey);
+  }, [hasResult, ackLeft, playerKey]);
 
   // Auto: Reaktionsphase → Done nach 60s (nur Nicht-Zugspieler, wenn noch nicht reagiert)
   useEffect(() => {
+    if (!playerKey) return;
     if (!inReaction || reactLeft > 0) return;
-    const hasReacted = !!lobby?.reactions?.[me.name]?.done;
-    if (!isMyTurn && !hasReacted) onDone(me.name);
-  }, [inReaction, reactLeft]);
+    const hasReacted = !!lobby?.reactions?.[playerKey]?.done;
+    if (!isMyTurn && !hasReacted) onDone(playerKey);
+  }, [inReaction, reactLeft, playerKey, isMyTurn]);
+
+  if (!playerKey) return null;
 
   // Voting-Priorität: wenn Voting aktiv, Modal immer zeigen
   if (isVoting) {
@@ -312,9 +320,9 @@ export default function MagicCardModal({
           )}
 
           {/* Mein OK sendet ACK; Overlay bleibt bis ALLE ok gedrückt haben */}
-          {!acks[me.name] ? (
+          {!acks[playerKey] ? (
             <TouchableOpacity
-              onPress={() => onResultOk(me.name)}
+              onPress={() => onResultOk(playerKey)}
               disabled={actionDisabled}
               style={{
                 marginTop: 20,
@@ -333,7 +341,7 @@ export default function MagicCardModal({
           ) : (
             <Text style={{ color: "#9f9", marginTop: 16 }}>✔️ Bestätigt</Text>
           )}
-          {!acks[me.name] && (
+          {!acks[playerKey] && (
             <Text style={{ color: "#bbb", marginTop: 8 }}>
               Automatisch OK in {fmt(ackLeft)}
             </Text>
@@ -352,7 +360,7 @@ export default function MagicCardModal({
   // Reaktionsstatus
   const reactions = lobby.reactions || {};
 
-  const hasReacted = reactions[me.name]?.done;
+  const hasReacted = reactions[playerKey]?.done;
   const allDone =
     Object.values(reactions).filter((r) => r.done).length >=
     (lobby.players?.length || 0) - 1;
@@ -419,7 +427,7 @@ export default function MagicCardModal({
               >
                 {/* 🍺 Trinken zentriert */}
                 <TouchableOpacity
-                  onPress={() => handleDrink(me.name)}
+                  onPress={() => handleDrink(playerKey)}
                   disabled={actionDisabled}
                   style={{
                     backgroundColor: "#D9C9A3",
@@ -544,7 +552,7 @@ export default function MagicCardModal({
                 {/* ✅ Done zentriert darunter */}
                 <TouchableOpacity
                   onPress={() => {
-                    onDone(me.name);
+                    onDone(playerKey);
                     setTrapRevealed(false);
                   }}
                   disabled={actionDisabled}

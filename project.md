@@ -3,9 +3,8 @@
 Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über Firebase Firestore.
 
 **Git-Repo:** [maksimscheierman-prof/WodkaO](https://github.com/maksimscheierman-prof/WodkaO)  
-**App-Ordner:** `jahw3-app/` (lokaler Ordnername unverändert) — **dieser Ordner ist das Git-Root**  
-**Workspace-Parent:** `Sauf Viel-Oh/` (Cursor kann einen Ordner höher geöffnet sein; Root-`package.json` delegiert npm)  
-**npm package name:** `jahw3-app` (technisch, unverändert)  
+**Projektroot:** `Sauf Viel-Oh/` — Git, App-Code und npm-Befehle liegen hier  
+**npm package name:** `jahw3-app` (technisch, Expo-Projektname unverändert)  
 **Display name (UI):** Vod-ka-Oh!  
 **Version:** `1.0.0` (`app.json`, `package.json`)  
 **Phase:** MVP — APK-Test mit Freunden (kein Store) — siehe [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md)
@@ -19,26 +18,24 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 | [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md) | Firestore, Online-Sync, Concurrency |
 | [docs/firebase_cleanup.md](docs/firebase_cleanup.md) | Lobby-Ablauf (2h), Admin-Cleanup, Cloud Functions |
 | [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md) | Ziel, Soll/Ist, Checkliste, Phasen 1–5 |
+| [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) | **Freunde-APK** — Must-fix, Build-Ops, 2-Geräte-Test |
 | [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) | EAS/APK-Befehle, Voraussetzungen |
 | [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md) | Spielphasen & Regeln |
 | [docs/layout_system.md](docs/layout_system.md) | Tisch-Slot-Layout (Deck, Monster, Avatare) |
 | [docs/layout_debug.md](docs/layout_debug.md) | Viewport/Squash-Debug (Cursor Browser) |
-| [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md) | Workspace-Struktur, Parent vs. App-Root |
+| [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md) | Projektstruktur (ein Root seit 2026-06-13) |
 
-**Startordner für App-Befehle:** `jahw3-app/` (dieser Ordner) — oder Parent mit `npm run …` (delegiert)
+**Alle Befehle vom Projektroot `Sauf Viel-Oh/`:**
 
-### Workspace-Struktur
-
-| Ordner öffnen in Cursor | npm | Git |
-|-------------------------|-----|-----|
-| `Sauf Viel-Oh` (Parent) | `npm run start` etc. vom Root | `cd jahw3-app && git …` |
-| `jahw3-app` (empfohlen für EAS/Git) | `npm run start` direkt | `git …` direkt |
-
-Siehe [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md).
+```bash
+npm install
+npm start          # bzw. npm run web / android / ios
+npm run lint
+```
 
 **Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web
 
-**APK-Status:** ⚠️ **Config fertig** (`eas.json`, `android.package: com.wodkao.app`) — Cloud-Build + Gerätetest noch offen ([docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md))
+**APK-Status:** ⚠️ **Code release-ready** — Build-Ops offen: `eas login`, EAS Env `preview`, erster Build ([docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md))
 
 **Online-Multiplayer:** ✅ **Implementiert** (Firestore + Lobby-Code) — siehe [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md)
 
@@ -48,7 +45,7 @@ Siehe [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md).
 
 ## Aktueller Stand
 
-*Stand: 2026-06-09*
+*Stand: 2026-06-13 (MVP-Release-Audit)*
 
 - **Firebase/Firestore** wieder funktionsfähig (Lobby + Spiel-Sync; Firestore Rules im Firebase Console für MVP geöffnet)
 - **Multiplayer-Lobby** funktioniert (Erstellen, Beitreten, Ready, Host-Start)
@@ -163,7 +160,9 @@ Siehe [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md).
 - Label zeigt echte Count in Klammern
 - **Saufstapel** (links Mitte) = `saufDeck.length` (Magie + Fallen gemischt)
 - **Ablage** (rechts Mitte) = `discardPile.length`
-- **Ziehen-Button** — eigener Slot unter Saufstapel (nicht im Monster-Slot)
+**Ziehen-Button:** `GameActionBar` — fixierte Action-Bar unten (50 % Breite Desktop, ~82–90 % Mobile), min. 64 px Höhe. Ziehen/Aufdecken/Ablegen nur am eigenen Zug.
+
+**Lobby-Code:** Gesamter `LobbyCodeBadge` klickbar → kopiert Code (Web + Native via `expo-clipboard`), Feedback „Kopiert!“.
 - Fallen-Count = `players.filter(p => p.trap).length`
 - `LayoutAnimation` bei Count-Wechsel
 
@@ -191,7 +190,9 @@ Siehe [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md).
 
 | Datum | Fix |
 |-------|-----|
-| 2026-06-09 | **Tisch-Slot-Layout:** `tableSlotLayout.js` — Deck/Ablage/Button/Monster/Avatar relativ zu `tableRect`, Kollisionsprüfung |
+| 2026-06-13 | **MVP-Release-Audit:** `MagicCardModal` me-Guard, `VotePanel` entfernt (nur Modal), `reactions` bei Start für alle Spieler, Action-Bar während Voting aus — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
+| 2026-06-13 | **Game-Screen Touch-UX:** Improved draw button touch target and made full lobby-code panel clickable with copy feedback (`GameActionBar`, `LobbyCodeBadge`, `expo-clipboard`). |
+| 2026-06-13 | **Monster-Slots am Tischrand:** Top/Bottom-Monster nahe Tischrand (15–25 px), Mitte frei für Stapel — [docs/layout_system.md](docs/layout_system.md) |
 | 2026-06-09 | **Layout Squash-Fix:** Cursor-Browser-Viewport — `isSquashedViewport`, Mindest-Tischhöhe ([docs/layout_debug.md](docs/layout_debug.md)) |
 | 2026-06-09 | **Admin cleanup script:** `scripts/cleanup_old_lobbies.js` — Standard dry-run; `--delete` / `--expire` nur per Flag |
 | 2026-06-09 | **Stale lobby cleanup:** `lastActivityAt` + `serverTimestamp` bei Lobby-/Spielaktionen; Join blockiert nach 2h Inaktivität; `status: expired`; CF-Snippet in [docs/firebase_cleanup.md](docs/firebase_cleanup.md) |
@@ -212,11 +213,11 @@ Siehe [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md).
 |-----|--------|---------|
 | `bubbleText is not defined` | ✅ Behoben | `bubbleText` in `PlayerSeat.js` definiert; ggf. Metro-Cache leeren (`expo start -c`) |
 | Avatar oben abgeschnitten (kurzer/quer Viewport) | ✅ Behoben | Avatar-aware `getTableEllipse`, `boardTopInset`, kleinere Avatare bei height unter 520px |
-| Viewing-Bubble verschwindet nicht immer korrekt | ⚠️ Offen | Nach 15 s lokales Timeout oder Modal-Close; Edge-Cases bei Tab-Wechsel/Unmount prüfen |
-| Avatar/Karten-Positionierung | ✅ Slot-System | Feintuning 8 Spieler / sehr kleine Screens — [docs/layout_system.md](docs/layout_system.md) |
-| `reactions`-Init nur für Host | ⚠️ Bekannt | Reaktionsphase evtl. falsch für Joiner |
-| Doppelte Vote-UI | ⚠️ Bekannt | `VotePanel` + `MagicCardModal` parallel |
-| `MagicCardModal` ohne `me`-Guard | ⚠️ Risiko | `me.name` wenn Spieler nicht in Lobby — potenzieller Crash |
+| Viewing-Bubble verschwindet nicht immer korrekt | ⚠️ Offen | Nach 15 s lokales Timeout; Edge-Cases Tab-Wechsel — nach APK |
+| Avatar/Karten-Positionierung | ✅ Slot-System | Feintuning 8 Spieler — [docs/layout_system.md](docs/layout_system.md) |
+| `MagicCardModal` ohne `me`-Guard | ✅ Behoben | Guard + `game.js` rendert Modal nur mit `me` |
+| Doppelte Vote-UI | ✅ Behoben | `VotePanel` entfernt — nur `MagicCardModal` |
+| `reactions`-Init nur Host | ✅ Behoben | `startGame` + `handleShow` für alle Spieler |
 | Timer-Settings unerreichbar | ⚠️ Bekannt | Screen existiert, nicht verlinkt |
 | Expo-Paket-Versionen | ⚠️ Warnung | 16 Pakete hinter SDK-Empfehlung |
 | Kein Spielende | ℹ️ By design | Endlosschleife, kein `status: "finished"` |
@@ -263,25 +264,25 @@ Siehe [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md).
 ## Folder structure
 
 ```
-jahw3-app/          # App-Code (Git-Repo-Root)
-  app/              # expo-router screens (index, lobby, game, gallery, settings)
+Sauf Viel-Oh/         # Projektroot (Git + Expo App)
+  app/                # expo-router screens (index, lobby, game, gallery, settings)
   src/
-    components/     # Card, GameBoard, modals, VotePanel, …
-    hooks/          # useLobby, useGameLogic, useGameFirebase
-    utils/          # gameActions, gameLogic, cards
-    config/         # timers
-    styles/         # CardStyles, gameStyles
+    components/       # Card, GameBoard, modals, VotePanel, …
+    hooks/            # useLobby, useGameLogic, useGameFirebase
+    utils/            # gameActions, gameLogic, cards
+    config/           # timers, gamePhases
+    styles/           # CardStyles, gameStyles
   assets/
-    fonts/          # DidactGothic
-    images/cards/   # ~70 card PNGs
-  docs/             # AI, security, testing, release guides
-  .cursor/rules/    # Cursor agent rules
+    fonts/            # DidactGothic
+    images/cards/     # ~70 card PNGs
+  docs/               # MVP, Firebase, Build, Spielablauf
+  scripts/            # Tests, Lobby-Cleanup
+  .cursor/rules/      # Cursor agent rules
   firebaseConfig.js
   app.json
+  eas.json
   package.json
 ```
-
-Workspace-Root (`Sauf Viel-Oh/`) enthält zusätzlich `project.md` (Übersicht), gespiegelte `.cursor/rules/` und `docs/`.
 
 ---
 
@@ -547,7 +548,7 @@ npm start       # ✅ Expo Dev Server gestartet
 
 ## Stabilisierung Session
 
-*Stand: 2026-06-09*
+*Stand: 2026-06-13 (MVP-Release-Audit)*
 
 ### Behobene Fehler
 
@@ -595,13 +596,13 @@ npm start       # ✅ Expo Dev Server gestartet
 | Element | Status |
 |---------|--------|
 | Slot-Layout (`tableSlotLayout.js`, `GameBoard.js`, max. 8) | ✅ |
-| Kompakte Lobby-Code-HUD-Box (`LobbyCodeBadge`, oben rechts) | ✅ |
+| Kompakte Lobby-Code-HUD-Box (`LobbyCodeBadge`, oben rechts) | ✅ ~2× größer, ganzer Block kopiert Code |
 | Rundenanzeige im Tisch | ✅ |
 | HUD blockiert Spielfeld nicht mehr | ✅ |
 | Join während `status: playing` | ❌ **Blockiert** in `joinLobby` |
 | Sichtbare Kartenstapel auf dem Tisch | ✅ |
 | Saufstapel / Ablage (getrennte Slots) | ✅ (`StackPile.js`) |
-| Ziehen-Button eigener Slot (nicht Monster-Slot) | ✅ |
+| Ziehen-Button (`GameActionBar`, unten) | ✅ 64–72 px Touch-Ziel, „Karte ziehen“, nur am Zug |
 | Dynamische Stapelgröße (0–4 echt, 5+ max. 5 sichtbar) | ✅ |
 | Leeres Stapelfeld bei 0 Karten | ✅ gestrichelter Platzhalter |
 | Anzahl in Klammern (echte Count) | ✅ |
@@ -667,16 +668,14 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 
 ## Git-Status
 
-*Stand: 2026-06-09 (nach UX/Presence-Session)*
+*Stand: 2026-06-13 (Projektroot-Migration)*
 
 | Eigenschaft | Wert |
 |-------------|-------|
 | **Ziel-Repo** | https://github.com/maksimscheierman-prof/WodkaO |
-| **Repo-Pfad** | `jahw3-app/.git` |
-| **Branch** | `main` |
-| **Remote (origin)** | `https://github.com/maksimscheierman-prof/WodkaO` |
-| **Letzter Commit (remote)** | `5993162` — „Timer Anzeig erstellt…" (2025-10-08) |
-| **Lokale Änderungen** | Viele unstaged/untracked — Pokertisch, HUD, Presence, Locks |
+| **Repo-Pfad** | `Sauf Viel-Oh/.git` |
+| **Branch** | `feature/mvp-online-apk` |
+| **Struktur** | Ein Root — `jahw3-app/` aufgelöst (2026-06-13) |
 
 ### Offene Änderungen (Auszug)
 

@@ -87,11 +87,16 @@ export function getTableScaleFactors(boardWidth, boardHeight) {
   return { width: 0.88, height: 0.86, squashed: false, landscape: false };
 }
 
-export function getMinTableHeight(avatarBlockHeight, stackHeight = 88) {
-  const centerBand = stackHeight + 96;
-  const verticalNeed = avatarBlockHeight * 2 + centerBand;
-  return Math.max(MIN_TABLE_HEIGHT, Math.round(verticalNeed * 0.42));
+export function getMinTableHeight(avatarBlockHeight, stackHeight = 88, cardHeight = 100) {
+  const edgeMargin = 20;
+  const monsterCardH = cardHeight + 6;
+  const centerBand =
+    stackHeight + 14 + MIN_GAPS_SLOT_DECK_MONSTER * 2;
+  const edgeMonsterNeed = 2 * edgeMargin + 2 * monsterCardH + centerBand;
+  return Math.max(MIN_TABLE_HEIGHT, Math.round(edgeMonsterNeed));
 }
+
+const MIN_GAPS_SLOT_DECK_MONSTER = 12;
 
 export function getTableEllipse(
   boardWidth,

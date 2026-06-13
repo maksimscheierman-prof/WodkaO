@@ -21,7 +21,7 @@ APK-Build-Anleitung: [BUILD_ANDROID.md](BUILD_ANDROID.md)
 
 ## Automated checks
 
-Run from `jahw3-app/`:
+Run from project root (`Sauf Viel-Oh/`):
 
 | Command | When | Status |
 |---------|------|--------|

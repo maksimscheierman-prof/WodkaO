@@ -18,7 +18,7 @@ alwaysApply: false
 ## Standard commands
 
 ```bash
-cd jahw3-app
+# From project root
 npm run lint
 npx expo-doctor
 ```

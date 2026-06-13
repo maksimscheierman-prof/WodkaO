@@ -317,7 +317,9 @@ export default function Lobby() {
         effectsUsed: {},
         lastMagic: null,
         showMagic: false,
-        reactions: {},
+        reactions: Object.fromEntries(
+          playerNames.map((name) => [name, { done: false }])
+        ),
         reactingPlayers: [],
         timers: data.timers || DEFAULT_TIMERS,
         ...EMPTY_TIMER_STARTS,

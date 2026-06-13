@@ -4,7 +4,7 @@
 
 ## Projekt-Kurzüberblick
 
-- **App:** WodkaO / Sauf Viel-Oh — Expo ~54 + React Native, Git-Root `jahw3-app/`
+- **App:** WodkaO / Sauf Viel-Oh — Expo ~54 + React Native, Git-Root = Projektordner
 - **Remote:** https://github.com/maksimscheierman-prof/WodkaO
 - **MVP:** Firebase-Online-Lobby + installierbare Android-APK für Freunde-Tests (kein Store)
 

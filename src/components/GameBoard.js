@@ -59,13 +59,8 @@ export default function GameBoard({
   lobby,
   me,
   playerName,
-  isMyTurn,
-  onDraw,
-  onShow,
-  onDiscard,
   onSelectCard,
   setSelectedCard,
-  actionDisabled = false,
 }) {
   const [boardSize, setBoardSize] = useState({ width: 0, height: 0 });
   const lastDebugKey = useRef("");
@@ -115,7 +110,6 @@ export default function GameBoard({
       slots: {
         deck: slotToPosition(slots.centerDeckSlot),
         discard: slotToPosition(slots.centerDiscardSlot),
-        drawButton: slotToPosition(slots.drawButtonSlot),
         topMonster: slotToPosition(slots.topMonsterSlot),
         bottomMonster: slotToPosition(slots.bottomMonsterSlot),
       },
@@ -176,21 +170,8 @@ export default function GameBoard({
   const activeCardW = Math.round(cardWidth * 1.35);
   const activeCardH = Math.round(cardHeight * 1.35);
 
-  const btnStyle = {
-    backgroundColor: "#D9C9A3",
-    paddingVertical: compact ? 8 : 10,
-    paddingHorizontal: compact ? 12 : 14,
-    minHeight: 44,
-    borderRadius: 8,
-    opacity: actionDisabled ? 0.5 : 1,
-    justifyContent: "center",
-    alignItems: "center",
-    width: slots.drawButtonSlot.width,
-  };
-
   const deckCol = slots.centerDeckSlot;
   const discardCol = slots.centerDiscardSlot;
-  const drawSlot = slots.drawButtonSlot;
 
   return (
     <View
@@ -216,7 +197,6 @@ export default function GameBoard({
         <SlotDebugRect slot={slots.deckColumnSlot} color={DEBUG_SLOT_COLORS.deckColumn} label="deckCol" />
         <SlotDebugRect slot={slots.centerDeckSlot} color={DEBUG_SLOT_COLORS.centerDeck} label="deck" />
         <SlotDebugRect slot={slots.centerDiscardSlot} color={DEBUG_SLOT_COLORS.centerDiscard} label="discard" />
-        <SlotDebugRect slot={slots.drawButtonSlot} color={DEBUG_SLOT_COLORS.drawButton} label="draw" />
         <SlotDebugRect slot={slots.topMonsterSlot} color={DEBUG_SLOT_COLORS.topMonster} label="topMon" />
         <SlotDebugRect slot={slots.bottomMonsterSlot} color={DEBUG_SLOT_COLORS.bottomMonster} label="botMon" />
 
@@ -328,73 +308,6 @@ export default function GameBoard({
                 height={stackH}
                 topCardImage={topDiscardImage}
               />
-            </View>
-
-            <View
-              style={{
-                position: "absolute",
-                left: drawSlot.left,
-                top: drawSlot.top,
-                width: drawSlot.width,
-                height: drawSlot.height,
-                justifyContent: "center",
-                alignItems: "center",
-                zIndex: 3,
-              }}
-            >
-              {isMyTurn && !lobby.lastMagic && (
-                <TouchableOpacity
-                  onPress={onDraw}
-                  disabled={actionDisabled}
-                  style={btnStyle}
-                >
-                  <Text
-                    style={{
-                      color: "#2E1F12",
-                      fontWeight: "bold",
-                      fontSize: compact ? 11 : 13,
-                    }}
-                  >
-                    {actionDisabled ? "⏳ ..." : "🍺 Ziehen"}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {lobby.lastMagic && !lobby.showMagic && isMyTurn && (
-                <TouchableOpacity
-                  onPress={onShow}
-                  disabled={actionDisabled}
-                  style={btnStyle}
-                >
-                  <Text
-                    style={{
-                      color: "#2E1F12",
-                      fontWeight: "bold",
-                      fontSize: compact ? 11 : 13,
-                    }}
-                  >
-                    {actionDisabled ? "⏳ ..." : "👁️ Aufdecken"}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {lobby.lastMagic && lobby.showMagic && isMyTurn && (
-                <TouchableOpacity
-                  onPress={onDiscard}
-                  disabled={actionDisabled}
-                  style={btnStyle}
-                >
-                  <Text
-                    style={{
-                      color: "#2E1F12",
-                      fontWeight: "bold",
-                      fontSize: compact ? 11 : 13,
-                    }}
-                  >
-                    {actionDisabled ? "⏳ ..." : "🗑️ Ablegen"}
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
           </>
         )}

@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Scope
 
-This project is **React Native + Expo** (`jahw3-app`). Do not apply Flutter/Dart commands or patterns.
+This project is **React Native + Expo** (Projektroot `Sauf Viel-Oh/`). Do not apply Flutter/Dart commands or patterns.
 
 ## Before editing
 
@@ -24,7 +24,7 @@ This project is **React Native + Expo** (`jahw3-app`). Do not apply Flutter/Dart
 
 ## After implementation
 
-Run available checks from `jahw3-app/`:
+Run available checks from project root:
 
 ```bash
 npm run lint

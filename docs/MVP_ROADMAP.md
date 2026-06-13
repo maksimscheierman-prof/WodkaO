@@ -126,7 +126,7 @@ Details: [SPIELABLAUF.md](SPIELABLAUF.md)
 ### Phase 1 — Projekt startfähig machen
 
 - [ ] `.env` aus `.env.example` (Firebase + Google Sheets)
-- [ ] `npm install` in `jahw3-app/`
+- [ ] `npm install` im Projektroot
 - [ ] `npm run lint` + `npx expo-doctor`
 - [ ] Browser-Smoke-Test: Lobby → Start → Würfeln → Monster → 1 Runde
 - [ ] `project.md` / diese Roadmap bei Abweichungen aktualisieren
@@ -198,4 +198,5 @@ project.md dokumentieren. Keine riskanten Gameplay-Fixes.
 | [layout_system.md](layout_system.md) | Tisch-Slot-Layout |
 | [firebase_cleanup.md](firebase_cleanup.md) | Lobby-Ablauf & Cleanup |
 | [testing.md](testing.md) | QA-Checks |
+| [MVP_RELEASE_CHECKLIST.md](MVP_RELEASE_CHECKLIST.md) | Freunde-APK Release-Check |
 | [../project.md](../project.md) | Gesamtprojekt |

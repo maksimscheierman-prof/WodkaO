@@ -54,7 +54,7 @@ scripts/firebase-functions/cleanupOldLobbies.js
 
 2. **Im Firebase-Projekt** (Console) → Projekt-ID notieren (`EXPO_PUBLIC_FIREBASE_PROJECT_ID`).
 
-3. **Functions initialisieren** (neuer Ordner neben oder oberhalb von `jahw3-app` — nicht ins Expo-Bundle):
+3. **Functions initialisieren** (neuer Ordner neben dem Projektroot — nicht ins Expo-Bundle):
 
    ```bash
    mkdir wodkao-firebase
@@ -114,7 +114,7 @@ Collection: **`lobbies/{lobbyCode}`** (5-stelliger Code = Document-ID).
 
 1. Service Account: Firebase Console → Project Settings → Service accounts → **Generate new private key**
 2. JSON **lokal** speichern (z. B. `C:\secrets\wodkao-admin.json`) — **nie committen**
-3. In `jahw3-app`:
+3. Im Projektroot:
 
    ```bash
    npm install
@@ -149,7 +149,7 @@ Vor der Ausführung gibt das Script aus: Collection, Cutoff-Zeit, Modus, Anzahl 
 ### Beispiele
 
 ```bash
-cd jahw3-app
+cd "Sauf Viel-Oh"
 
 # Dry-run (Standard) — IDs + Zeitfelder anzeigen
 node scripts/cleanup_old_lobbies.js --hours=2
@@ -201,7 +201,7 @@ Production: Firebase Auth + Custom Claims oder Cloud Function als einziger Write
 ## Tests lokal
 
 ```bash
-cd jahw3-app
+cd "Sauf Viel-Oh"
 node scripts/test_lobby_lifecycle.js
 npm run lint
 ```
