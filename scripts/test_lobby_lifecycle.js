@@ -71,6 +71,19 @@ assert(
   !isLobbyExpired({ status: LOBBY_STATUS.FINISHED, lastActivityAt: 0 }, now)
 );
 
+assert(
+  "finished lobby not joinable",
+  !isLobbyJoinable({ status: LOBBY_STATUS.FINISHED, lastActivityAt: now })
+);
+
+assert(
+  "playing lobby joinable",
+  isLobbyJoinable({
+    status: LOBBY_STATUS.PLAYING,
+    lastActivityAt: now - 1000,
+  })
+);
+
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed`);
   process.exit(1);

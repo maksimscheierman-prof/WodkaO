@@ -20,7 +20,7 @@ export const cardStyles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    fontFamily: "Didact Gothic",
+    fontFamily: "DidactGothic",
     color: "#000",
   },
 

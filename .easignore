@@ -1,0 +1,154 @@
+# EAS Build upload excludes
+# When this file exists, .gitignore is NOT applied — all ignore rules must be listed here.
+# Docs: https://docs.expo.dev/build-reference/easignore
+
+# --- From .gitignore (keep in sync) ---
+
+# dependencies
+node_modules/
+
+# Node
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Metro Bundler
+*.metro-cache/
+metro-cache/
+.expo-dev/
+
+# Build
+build/
+android/
+ios/
+raw/
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env
+.env.*
+!.env.example
+.env*.local
+
+# Firebase / Google (project-specific)
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# Android signing
+key.properties
+**/key.properties
+*.keystore
+
+# Credentials
+secrets/
+credentials/
+sentry.properties
+*service-account*.json
+*serviceAccount*.json
+firebase-service-account*.json
+*.firebase-admin.json
+**/credentials.json
+client_secret*.json
+
+# Test coverage
+coverage/
+
+# Expo shared
+.expo-shared/
+
+# Logs
+*.log
+logs/
+debug.log
+*.pid
+*.seed
+
+# OS
+Thumbs.db
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
+
+# Local working files (not referenced by app)
+imgrightnow.jpeg
+yugioh_trinkspiel_vorlage.xlsx
+
+# --- EAS-only: not needed for APK build ---
+
+# VCS / IDE (EAS excludes .git by default; explicit for EAS_NO_VCS)
+.git/
+
+# Documentation
+docs/
+project.md
+README.md
+
+# Cursor / editor
+.cursor/
+.cursorignore
+
+# Dev / test / maintenance scripts (not bundled)
+scripts/
+
+# Example / legacy
+firestore.rules.example
+jahw3-app/
+
+# Expo template leftovers (app uses src/, not root components/)
+/components/
+/hooks/
+/constants/
+
+# Unused bundled assets — card art loads from GitHub Pages at runtime
+assets/images/cards/
+
+# Unused source/raw art (not referenced via require())
+assets/images/raw/
+
+# Unused font / template images
+assets/fonts/starwarselon.webm
+assets/images/react-logo.png
+assets/images/react-logo@2x.png
+assets/images/react-logo@3x.png
+assets/images/partial-react-logo.png

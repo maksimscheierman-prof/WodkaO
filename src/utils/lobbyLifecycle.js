@@ -5,6 +5,8 @@ import {
   isLobbyExpired,
 } from "./lobbyLifecycleCore";
 
+export const FINISHED_LOBBY_MESSAGE = "Dieses Spiel ist beendet.";
+
 export {
   EXPIRED_LOBBY_MESSAGE,
   LOBBY_INACTIVITY_MS,
@@ -36,6 +38,9 @@ export async function markLobbyExpired(lobbyRef) {
 export async function ensureJoinableLobby(lobbyRef, data) {
   if (data.status === LOBBY_STATUS.EXPIRED) {
     return { ok: false, message: EXPIRED_LOBBY_MESSAGE };
+  }
+  if (data.status === LOBBY_STATUS.FINISHED) {
+    return { ok: false, message: FINISHED_LOBBY_MESSAGE };
   }
   if (isLobbyExpired(data)) {
     await markLobbyExpired(lobbyRef);

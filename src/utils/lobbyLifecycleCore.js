@@ -50,6 +50,7 @@ function isLobbyExpired(data, now = Date.now()) {
 function isLobbyJoinable(data, now = Date.now()) {
   if (!data) return false;
   if (data.status === LOBBY_STATUS.EXPIRED) return false;
+  if (data.status === LOBBY_STATUS.FINISHED) return false;
   if (isLobbyExpired(data, now)) return false;
   return true;
 }

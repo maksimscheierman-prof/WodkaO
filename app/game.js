@@ -2,11 +2,11 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import { doc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Text, useWindowDimensions, View } from "react-native";
+import { Text, useWindowDimensions, View, Alert } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -16,6 +16,7 @@ import CardModal from "../src/components/CardModal";
 
 import GameActionBar from "../src/components/GameActionBar";
 import GameBoard from "../src/components/GameBoard";
+import GameExitButton from "../src/components/GameExitButton";
 
 import GameSetupPanel from "../src/components/GameSetupPanel";
 
@@ -24,6 +25,7 @@ import LobbyCodeBadge from "../src/components/LobbyCodeBadge";
 import MagicCardModal from "../src/components/MagicCardModal";
 
 import { useAsyncLock } from "../src/hooks/useAsyncLock";
+import { confirmLeaveGame, useGameExitGuard } from "../src/hooks/useGameExit";
 
 import { useLobby } from "../src/hooks/useLobby";
 
@@ -43,10 +45,17 @@ import { handleCloseVoteResult } from "../src/utils/gameActions";
 
 import {
   EXPIRED_LOBBY_MESSAGE,
+  handleLeaveLobby,
   isLobbyExpired,
   LOBBY_STATUS,
   markLobbyExpired,
 } from "../src/utils/lobbyLifecycle";
+import {
+  getCardOpenLog,
+  isValidPlayableCard,
+  normalizeCardForDisplay,
+} from "../src/utils/cardDisplay";
+import { clearSession, saveSession } from "../src/utils/sessionStorage";
 
 
 
@@ -61,8 +70,10 @@ export default function Game() {
   const lobbyRef = doc(db, "lobbies", lobbyId);
 
   const [selectedCard, setSelectedCard] = useState(null);
+  const [joinToast, setJoinToast] = useState(null);
 
   const actionLock = useAsyncLock();
+  const lastJoinSeenRef = useRef(null);
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
@@ -71,6 +82,32 @@ export default function Game() {
   const compact = screenWidth < 400;
 
   const hudTop = Math.max(compact ? 4 : 6, insets.top + (compact ? 2 : 4));
+
+  const performLeaveGame = useCallback(async () => {
+    if (actionLock.isLocked) return;
+
+    await actionLock.runLocked(async () => {
+      if (lobby && playerName) {
+        await actions
+          .clearViewingCard(lobbyRef, lobby, playerName)
+          .catch((err) => console.error("[VIEWING CARD CLEAR]", err));
+
+        const snap = await getDoc(lobbyRef);
+        if (snap.exists()) {
+          await handleLeaveLobby(lobbyRef, snap.data(), playerName);
+        }
+      }
+
+      await clearSession();
+      router.replace({ pathname: "/", params: { playerName } });
+    });
+  }, [actionLock, lobby, lobbyRef, playerName, router]);
+
+  const requestLeaveGame = useCallback(() => {
+    confirmLeaveGame(performLeaveGame);
+  }, [performLeaveGame]);
+
+  useGameExitGuard(requestLeaveGame, !!lobby);
 
 
 
@@ -242,11 +279,30 @@ export default function Game() {
 
   const handleSelectCard = useCallback(
     (card, ownerName) => {
-      if (!card) return;
-      setSelectedCard(card);
+      if (!isValidPlayableCard(card)) {
+        console.error("[CARD SELECT] Invalid card", {
+          route: "game",
+          lobbyId,
+          playerName,
+          ownerName,
+          cardType: card?.type,
+          cardName: card?.name || card?.title,
+        });
+        Alert.alert(
+          "Karte nicht verfügbar",
+          "Diese Karte konnte nicht geladen werden."
+        );
+        return;
+      }
+
+      const normalized = normalizeCardForDisplay(card);
+      console.log("[CARD SELECT]", getCardOpenLog(card, "game"));
+      setSelectedCard(normalized);
 
       const type =
-        typeof card.type === "string" ? card.type.toLowerCase() : "";
+        typeof normalized.type === "string"
+          ? normalized.type.toLowerCase()
+          : "";
       if (
         ownerName === playerName &&
         (type === "monster" || type === "trap") &&
@@ -257,7 +313,7 @@ export default function Game() {
           .catch((err) => console.error("[VIEWING CARD]", err));
       }
     },
-    [lobby, lobbyRef, playerName]
+    [lobby, lobbyId, lobbyRef, playerName]
   );
 
   const handleCloseCardModal = useCallback(() => {
@@ -293,12 +349,35 @@ export default function Game() {
           console.error("[GAME EXPIRE]", err)
         );
       }
+      clearSession().catch(() => {});
       router.replace({
         pathname: "/lobby",
         params: { playerName, expiredMessage: EXPIRED_LOBBY_MESSAGE },
       });
     }
   }, [lobby, lobbyRef, playerName, router]);
+
+  useEffect(() => {
+    if (!lobbyId || !playerName || !lobby) return;
+    const me = lobby.players?.find((p) => p.name === playerName);
+    saveSession({
+      playerName,
+      lobbyId,
+      playerId: me?.id,
+      status: lobby.status,
+      gamePhase: lobby.gamePhase ?? null,
+    }).catch((err) => console.error("[SESSION SAVE]", err));
+  }, [lobbyId, playerName, lobby?.status, lobby?.gamePhase, lobby?.players]);
+
+  useEffect(() => {
+    const ann = lobby?.lastJoinAnnouncement;
+    if (!ann?.name || ann.name === playerName) return;
+    if (lastJoinSeenRef.current === ann.at) return;
+    lastJoinSeenRef.current = ann.at;
+    setJoinToast(`${ann.name} ist dem Spiel beigetreten.`);
+    const timer = setTimeout(() => setJoinToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [lobby?.lastJoinAnnouncement, playerName]);
 
   if (!lobby) {
 
@@ -387,53 +466,58 @@ export default function Game() {
 
 
           <View
-
             style={{
-
               position: "absolute",
-
               top: hudTop,
-
               left: compact ? 6 : 8,
-
+              right: compact ? 4 : 6,
               zIndex: 20,
-
-              maxWidth: screenWidth * (compact ? 0.48 : 0.55),
-
-              paddingRight: 8,
-
+              flexDirection: "row",
+              alignItems: "flex-start",
             }}
-
           >
+            <GameExitButton
+              onPress={requestLeaveGame}
+              size={compact ? 34 : 36}
+              style={{ marginTop: 0, flexShrink: 0 }}
+            />
 
-            <Text
-
+            <View
               style={{
-
-                color: isMyTurn ? "#7fff7f" : "#fff",
-
-                fontSize: compact ? 13 : 15,
-
-                fontWeight: "bold",
-
+                flex: 1,
+                marginLeft: 10,
+                paddingRight: 8,
+                maxWidth: screenWidth * (compact ? 0.52 : 0.58),
               }}
-
-              numberOfLines={2}
-
             >
+              <Text
+                style={{
+                  color: isMyTurn ? "#7fff7f" : "#fff",
+                  fontSize: compact ? 13 : 15,
+                  fontWeight: "bold",
+                }}
+                numberOfLines={2}
+              >
+                {setupPhase
+                  ? getPhaseLabel(lobby.gamePhase, lobby.diceRound)
+                  : isMyTurn
+                    ? "🎯 Du bist am Zug!"
+                    : `⏳ ${activePlayer || "…"} ist am Zug`}
+              </Text>
 
-              {setupPhase
-
-                ? getPhaseLabel(lobby.gamePhase, lobby.diceRound)
-
-                : isMyTurn
-
-                  ? "🎯 Du bist am Zug!"
-
-                  : `⏳ ${activePlayer || "…"} ist am Zug`}
-
-            </Text>
-
+              {joinToast ? (
+                <Text
+                  style={{
+                    color: "#b8d4ff",
+                    fontSize: compact ? 11 : 12,
+                    marginTop: 4,
+                  }}
+                  numberOfLines={2}
+                >
+                  {joinToast}
+                </Text>
+              ) : null}
+            </View>
           </View>
 
 

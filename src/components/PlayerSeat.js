@@ -1,15 +1,13 @@
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Image, TouchableOpacity, View } from "react-native";
+import {
+  getImageSourceForNative,
+  isValidPlayableCard,
+  normalizeCardForDisplay,
+} from "../utils/cardDisplay";
 import { getViewingCardLabel } from "../utils/viewingCardText";
+import PlayerNameLabel from "./PlayerNameLabel";
 import PlayerSilhouette from "./PlayerSilhouette";
 import ViewingCardBubble from "./ViewingCardBubble";
-
-const getImageSource = (img) => {
-  if (!img) return null;
-  if (typeof img === "number") return img;
-  if (img.uri) return { uri: img.uri };
-  if (typeof img === "string") return { uri: img };
-  return null;
-};
 
 export default function PlayerSeat({
   player,
@@ -29,8 +27,6 @@ export default function PlayerSeat({
 }) {
   if (!player || !cardPosition || !avatarPosition) return null;
 
-  const nameColor = isCurrentTurn ? "#7fff7f" : isMe ? "#ffe08a" : "#fff";
-  const fontSize = isCurrentTurn ? (compact ? 12 : 14) : compact ? 11 : 12;
   const bubbleText = !isMe
     ? getViewingCardLabel(player?.viewingCard?.type)
     : null;
@@ -59,16 +55,20 @@ export default function PlayerSeat({
         >
           {player.monster && (
             <TouchableOpacity
-              onPress={() =>
+              onPress={() => {
+                if (!isValidPlayableCard(player.monster)) return;
                 onSelectCard(
-                  { ...player.monster, type: "monster" },
+                  normalizeCardForDisplay({
+                    ...player.monster,
+                    type: "monster",
+                  }),
                   player.name
-                )
-              }
+                );
+              }}
               hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
             >
               <Image
-                source={getImageSource(player.monster.image)}
+                source={getImageSourceForNative(player.monster.image)}
                 style={{
                   width: cardWidth,
                   height: cardHeight,
@@ -81,9 +81,13 @@ export default function PlayerSeat({
           )}
           {player.trap && (
             <TouchableOpacity
-              onPress={() =>
-                onSelectCard({ ...player.trap, type: "trap" }, player.name)
-              }
+              onPress={() => {
+                if (!isValidPlayableCard(player.trap)) return;
+                onSelectCard(
+                  normalizeCardForDisplay({ ...player.trap, type: "trap" }),
+                  player.name
+                );
+              }}
               hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
             >
               <Image
@@ -101,7 +105,7 @@ export default function PlayerSeat({
         </View>
       </View>
 
-      {/* Ebene 3: Avatar — tischzugewandte Kante berührt Ellipsenrand */}
+      {/* Ebene 3: Avatar + ein Name-Label */}
       <View
         style={{
           position: "absolute",
@@ -110,55 +114,52 @@ export default function PlayerSeat({
           width: avatarLabelWidth,
           alignItems: "center",
           zIndex: 4,
+          overflow: "visible",
         }}
       >
-        {bubbleText ? (
-          <View
-            style={{
-              position: "absolute",
-              bottom: avatarBlockHeight - 12,
-              alignItems: "center",
-              width: avatarLabelWidth,
-              zIndex: 5,
-            }}
-          >
-            <ViewingCardBubble
-              bubbleText={bubbleText}
-              startedAt={player.viewingCard?.startedAt}
-              compact={compact}
-            />
-          </View>
-        ) : null}
-
-        <PlayerSilhouette
-          name={player.name}
-          isCurrentTurn={isCurrentTurn}
-          isMe={isMe}
-          height={avatarHeight}
-        />
-        <Text
+        <View
           style={{
-            color: nameColor,
-            fontSize,
-            fontWeight: isCurrentTurn ? "bold" : "600",
-            marginTop: 2,
-            textAlign: "center",
+            width: avatarLabelWidth,
+            alignItems: "center",
+            position: "relative",
           }}
-          numberOfLines={1}
         >
-          {player.name}
-          {isMe ? " (Du)" : ""}
-        </Text>
-        {isStartPlayer && !isCurrentTurn && (
-          <Text style={{ color: "#ffe08a", fontSize: 9, marginTop: 1 }}>
-            🏁 Start
-          </Text>
-        )}
-        {isCurrentTurn && (
-          <Text style={{ color: "#7fff7f", fontSize: 10, marginTop: 2 }}>
-            am Zug
-          </Text>
-        )}
+          {bubbleText ? (
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: avatarHeight + 40,
+                alignItems: "center",
+                zIndex: 6,
+              }}
+            >
+              <ViewingCardBubble
+                bubbleText={bubbleText}
+                startedAt={player.viewingCard?.startedAt}
+                compact={compact}
+              />
+            </View>
+          ) : null}
+
+          <PlayerSilhouette
+            name={player.name}
+            isCurrentTurn={isCurrentTurn}
+            isMe={isMe}
+            height={avatarHeight}
+            showInitial={false}
+          />
+
+          <PlayerNameLabel
+            name={player.name}
+            isMe={isMe}
+            isCurrentTurn={isCurrentTurn}
+            isStartPlayer={isStartPlayer}
+            maxWidth={avatarLabelWidth}
+            compact={compact}
+          />
+        </View>
       </View>
     </>
   );

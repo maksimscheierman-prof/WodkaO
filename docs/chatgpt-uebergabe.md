@@ -1,6 +1,22 @@
 # WodkaO – ChatGPT Übergabe
 
-*Stand: 2026-06-09 (Dokumentations-Audit vor Commit)*
+*Stand: 2026-06-14 (Navigation, Card-Modal, EAS APK)*
+
+## MVP-Fortschritt (~75 % gesamt)
+
+| Bereich | % |
+|---------|---|
+| Infrastruktur | 85 % |
+| Lobby | 90 % |
+| Multiplayer | 80 % |
+| Gameplay | 85 % |
+| Android Build | 55 % |
+| Firebase | 75 % |
+| APK Testing | 25 % |
+
+**Neu (2026-06-14):** Nativer Nav-Header aus; eigene Gallery-Back-UI; Game-Exit (✕ + Confirm + BackHandler). EAS Preview-APK erfolgreich gebaut.
+
+Release-Checks: [MVP_RELEASE_CHECKLIST.md](MVP_RELEASE_CHECKLIST.md)
 
 ## Projekt-Kurzüberblick
 
@@ -23,7 +39,9 @@ Phasen: `waiting` → `rollingForStartPlayer` → `resolvingTie` → `drawingMon
 | Gemeinsamer Saufstapel | ✅ `saufDeck` (Magie + Fallen gemischt) |
 | Magie | ✅ Draw → Reaktion → Discard |
 | Fallen | ✅ Verdeckt bei Zug, Aktivierung + Vote später |
-| Join während Spiel | ❌ Blockiert (`status === "playing"`) |
+| Join während Spiel | ✅ Late Join (`joinLobbyTransaction`) — MVP-Pflicht |
+
+**Late Join:** Seat + Monster (Transaction), Turn hinten, Join-Toast. Unit-Tests: `npm run test:late-join`. Multi-Device-Test: [MVP_RELEASE_CHECKLIST.md](MVP_RELEASE_CHECKLIST.md).
 
 Details: [SPIELABLAUF.md](SPIELABLAUF.md), Schema: [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md)
 

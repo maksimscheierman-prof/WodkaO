@@ -331,7 +331,7 @@ export function getAvatarSize(boardWidth, boardHeight = 800) {
 }
 
 export function getAvatarBlockHeight(avatarHeight) {
-  return avatarHeight + 36;
+  return avatarHeight + 44;
 }
 
 export function getBoardTopInset(boardHeight, safeAreaTop = 0) {

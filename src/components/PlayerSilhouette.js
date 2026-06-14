@@ -14,6 +14,7 @@ export default function PlayerSilhouette({
   isCurrentTurn,
   isMe,
   height = 100,
+  showInitial = true,
 }) {
   const initial = getInitial(name);
   const scale = height / 100;
@@ -32,24 +33,24 @@ export default function PlayerSilhouette({
     ? {
         shadowColor: "#7fff7f",
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 1,
-        shadowRadius: 14,
-        elevation: 8,
+        shadowOpacity: 0.85,
+        shadowRadius: 10,
+        elevation: 6,
       }
     : {};
 
   return (
     <View
-      style={[
-        {
-          alignItems: "center",
-          height,
-          justifyContent: "flex-end",
-          paddingBottom: 2,
-        },
-        glow,
-      ]}
+      style={{
+        alignItems: "center",
+        height,
+        justifyContent: "flex-end",
+        paddingBottom: 2,
+        overflow: "hidden",
+        width: "100%",
+      }}
     >
+      <View style={[{ alignItems: "center", justifyContent: "flex-end" }, glow]}>
       {/* Kopf */}
       <View
         style={{
@@ -90,15 +91,19 @@ export default function PlayerSilhouette({
           zIndex: 1,
         }}
       >
-        <Text
-          style={{
-            color: "#D9C9A3",
-            fontSize: Math.round(14 * scale),
-            fontWeight: "bold",
-          }}
-        >
-          {initial}
-        </Text>
+        {showInitial ? (
+          <Text
+            style={{
+              color: "#D9C9A3",
+              fontSize: Math.round(14 * scale),
+              fontWeight: "bold",
+              includeFontPadding: false,
+            }}
+          >
+            {initial}
+          </Text>
+        ) : null}
+      </View>
       </View>
     </View>
   );

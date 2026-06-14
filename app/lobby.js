@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { db } from "../firebaseConfig";
 import { DEFAULT_TIMERS, EMPTY_TIMER_STARTS } from "../src/config/timers";
 import { useAsyncLock } from "../src/hooks/useAsyncLock";
@@ -19,6 +20,8 @@ import {
   markLobbyExpired,
   withActivity,
 } from "../src/utils/lobbyLifecycle";
+import { joinLobbyTransaction } from "../src/utils/lateJoin";
+import { clearSession, saveSession } from "../src/utils/sessionStorage";
 
 // Lobby-Code Generator
 const generateCode = () => {
@@ -31,6 +34,7 @@ const generateCode = () => {
 export default function Lobby() {
   const router = useRouter();
   const { playerName, expiredMessage } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
 
   const [joinCode, setJoinCode] = useState("");
   const [createdCode, setCreatedCode] = useState(null);
@@ -95,6 +99,7 @@ export default function Lobby() {
             console.error("[LOBBY EXPIRE]", err)
           );
         }
+        await clearSession();
         setPlayers([]);
         setLobbyId(null);
         setCreatedCode(null);
@@ -103,6 +108,15 @@ export default function Lobby() {
       }
 
       setPlayers(data.players || []);
+
+      const me = (data.players || []).find((p) => p.name === playerName);
+      await saveSession({
+        playerName,
+        lobbyId,
+        playerId: me?.id,
+        status: data.status,
+        gamePhase: data.gamePhase ?? null,
+      });
 
       if (data.status === LOBBY_STATUS.PLAYING) {
         console.log("[LOBBY] Spiel gestartet → Redirect zu /game");
@@ -152,6 +166,15 @@ export default function Lobby() {
 
       await setDoc(doc(db, "lobbies", code), lobbyData);
 
+      const hostId = lobbyData.players[0].id;
+      await saveSession({
+        playerName,
+        lobbyId: code,
+        playerId: hostId,
+        status: LOBBY_STATUS.WAITING,
+        gamePhase: null,
+      });
+
       console.log("[CREATE LOBBY]", lobbyData);
       setMessage({ type: "success", text: `Lobby ${code} erstellt!` });
     }).catch((error) => {
@@ -193,6 +216,13 @@ export default function Lobby() {
           text: "ℹ️ Du bist bereits in dieser Lobby.",
         });
         setLobbyId(code);
+        await saveSession({
+          playerName,
+          lobbyId: code,
+          playerId: data.players.find((p) => p.name === playerName)?.id,
+          status: data.status,
+          gamePhase: data.gamePhase ?? null,
+        });
         return;
       }
 
@@ -202,42 +232,40 @@ export default function Lobby() {
         return;
       }
 
-      if (data.status === LOBBY_STATUS.PLAYING) {
-        setMessage({
-          type: "error",
-          text: "❌ Spiel läuft bereits — Beitritt nicht möglich.",
-        });
-        return;
-      }
-
-      if (data.players.length >= 8) {
-        setMessage({
-          type: "error",
-          text: "❌ Lobby ist voll (max. 8 Spieler).",
-        });
-        return;
-      }
-
       if (!data.timers) {
         await updateDoc(ref, withActivity({ timers: DEFAULT_TIMERS }));
       }
 
-      const newPlayer = {
-        id: Date.now().toString(),
-        name: playerName,
-        ready: false,
-        isHost: false,
-        monster: null,
-        trap: null,
-        shots: 0,
-      };
+      const playerId = Date.now().toString();
+      const joinResult = await joinLobbyTransaction(db, ref, playerName, playerId);
 
-      const updatedPlayers = [...data.players, newPlayer];
-      await updateDoc(ref, withActivity({ players: updatedPlayers }));
+      if (!joinResult.ok) {
+        setMessage({
+          type: "error",
+          text: `❌ ${joinResult.message || "Fehler beim Beitreten."}`,
+        });
+        return;
+      }
 
-      console.log("[JOIN]", playerName, "in Lobby", code);
+      console.log(
+        "[JOIN]",
+        playerName,
+        "in Lobby",
+        code,
+        joinResult.isLateJoin ? "(late join)" : ""
+      );
       setLobbyId(code);
-      setMessage({ type: "success", text: `✅ Lobby ${code} beigetreten!` });
+      setMessage({
+        type: joinResult.isLateJoin ? "info" : "success",
+        text: joinResult.message,
+      });
+      await saveSession({
+        playerName,
+        lobbyId: code,
+        playerId,
+        status: data.status,
+        gamePhase: data.gamePhase ?? null,
+      });
     }).catch((error) => {
       console.error("[JOIN ERROR]", error);
       setMessage({ type: "error", text: "❌ Fehler beim Beitreten." });
@@ -345,6 +373,7 @@ export default function Lobby() {
       setLobbyId(null);
       setCreatedCode(null);
       setPlayers([]);
+      await clearSession();
       setMessage({ type: "info", text: "Du hast die Lobby verlassen." });
     }).catch((error) => {
       console.error("Leave Lobby Error:", error);
@@ -370,13 +399,14 @@ export default function Lobby() {
         alignItems: "center",
         gap: 16,
         padding: 20,
+        paddingTop: 20 + insets.top,
       }}
     >
       {message && (
         <View
           style={{
             position: "absolute",
-            top: 0,
+            top: insets.top,
             left: 0,
             right: 0,
             padding: 10,

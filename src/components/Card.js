@@ -1,26 +1,26 @@
 import { Image, ImageBackground, Text, View } from "react-native";
 import AutoFontSizeText from "../components/AutoFontSizeText";
 import { cardStyles } from "../styles/CardStyles";
+import {
+  DEFAULT_CARD_IMAGE,
+  normalizeCardImage,
+} from "../utils/cardDisplay";
 
 export default function Card({
   title = "Mystischer-Raum-Cocktail",
   description = "Wähle drei Getränke deiner Wahl und mixe sie zu einem Cocktail. Wähle zwei Mitspieler, die den Cocktail innerhalb von drei Runden auftrinken müssen.",
   atk = 1500,
   def = 1500,
-  type = "magic", // "magic" | "trap" | "monster"
+  type = "magic",
   stars = 4,
   monsterType = "[Effekt]",
-  image = {
-    uri: "https://jerrichoz.github.io/DrinkingGameOh/assets/images/cards/default_card.png",
-  },
+  image,
 }) {
-  // --- robustes Normalisieren: niemals crashen ---
   const normalizedType =
     typeof type === "string" && type.trim().length > 0
       ? type.trim().toLowerCase()
       : "monster";
 
-  // --- Frames pro Typ (Achtung: Pfade relativ zu src/components/Card.js) ---
   const frameSources = {
     monster: require("../../assets/images/templates/monster_frame.png"),
     magic: require("../../assets/images/templates/magic_frame.png"),
@@ -28,35 +28,42 @@ export default function Card({
   };
   const currentFrame = frameSources[normalizedType] || frameSources.monster;
 
-  // --- Label pro Typ ---
   const typeLabels = {
     magic: "[ZAUBERKARTE]",
     trap: "[FALLENKARTE]",
-    monster: monsterType,
+    monster: monsterType || "[Effekt]",
   };
   const currentLabel =
     typeLabels[normalizedType] || `[${normalizedType.toUpperCase()}]`;
+
+  const safeTitle = title || "Unbekannte Karte";
+  const safeDescription = description || "Kein Effekttext verfügbar.";
+  const imageSource = normalizeCardImage(image ?? DEFAULT_CARD_IMAGE);
+
+  const starsRaw = parseInt(stars, 10);
+  const safeStars = Number.isFinite(starsRaw)
+    ? Math.min(Math.max(starsRaw, 0), 12)
+    : 0;
 
   return (
     <ImageBackground
       source={currentFrame}
       style={cardStyles.cardTemplate}
       resizeMode="stretch"
+      collapsable={false}
     >
-      {/* Titel */}
       <View style={cardStyles.titleWrap}>
         <AutoFontSizeText
           style={cardStyles.cardTitle}
           minFontSize={14}
           maxFontSize={20}
         >
-          {title}
+          {safeTitle}
         </AutoFontSizeText>
       </View>
 
-      {/* Monster: Sterne */}
       {normalizedType === "monster" &&
-        [...Array(stars)].map((_, i) => (
+        [...Array(safeStars)].map((_, i) => (
           <Image
             key={i}
             source={require("../../assets/images/star.png")}
@@ -64,26 +71,21 @@ export default function Card({
             resizeMode="contain"
           />
         ))}
-      {/* Magic / Trap: TypeLabel oben statt Sterne */}
       {(normalizedType === "magic" || normalizedType === "trap") && (
         <Text style={cardStyles.topTypeLabel}>{currentLabel}</Text>
       )}
-      {/* Bild in der Mitte */}
-      <Image source={image} style={cardStyles.imageBox} resizeMode="cover" />
+      <Image source={imageSource} style={cardStyles.imageBox} resizeMode="cover" />
 
-      {/* Monster: TypeLabel wie bisher unten über der Beschreibung */}
       {normalizedType === "monster" && (
         <Text style={cardStyles.typeLabel}>{currentLabel}</Text>
       )}
 
-      {/* Beschreibung */}
-      <Text style={cardStyles.monsterDescription}>{description}</Text>
+      <Text style={cardStyles.monsterDescription}>{safeDescription}</Text>
 
-      {/* ATK/DEF (nur bei Monsterkarten) */}
       {normalizedType === "monster" && (
         <>
-          <Text style={cardStyles.monsterAtk}>ATK/{atk}</Text>
-          <Text style={cardStyles.monsterDef}>DEF/{def}</Text>
+          <Text style={cardStyles.monsterAtk}>ATK/{Number(atk) || 0}</Text>
+          <Text style={cardStyles.monsterDef}>DEF/{Number(def) || 0}</Text>
         </>
       )}
     </ImageBackground>

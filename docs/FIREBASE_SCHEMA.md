@@ -61,6 +61,7 @@ Array von Objekten — **keine** Subcollection.
 | `monster` | Card \| null | Monsterkarte (Objekt aus Sheets) |
 | `trap` | Card \| null | Verdeckte Falle |
 | `shots` | number | Getrunkene Schlucke |
+| `seatIndex` | number? | Optionaler Tischplatz (0–7); Late Join = niedrigster freier Slot |
 | `viewingCard` | object? | Presence: `{ type, startedAt }` |
 
 ### Würfelphase
@@ -103,6 +104,17 @@ Array von Objekten — **keine** Subcollection.
 | `resultAcks` | `{ [name]: boolean }` | OK-Bestätigungen |
 | `effectsUsed` | object | Monster bereits aktiviert |
 | `*StartedAt` | number \| null | Timer-Anker (reactions, voting, …) |
+
+### Late Join
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `lastJoinAnnouncement` | `{ name, at, hadMonster }` \| null | Letzter Beitritt — UI-Toast für andere Spieler |
+| `joinLog` | `{ name, at }[]` | Optional, letzte 20 Join-Events |
+
+**Join-Transaction** (`joinLobbyTransaction`): atomar Spieler anhängen, Monster aus `monsterDeck` ziehen, `reactions` ergänzen — ohne `turn`, `gamePhase`, `votes` zu ändern.
+
+**MVP Release-Checks:** [MVP_RELEASE_CHECKLIST.md](MVP_RELEASE_CHECKLIST.md#multiplayer--late-join)
 
 ### Card-Objekt (typisch)
 

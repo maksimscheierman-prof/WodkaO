@@ -2,17 +2,19 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Image,
-  Modal,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import Card from "../src/components/Card";
-import { fetchAllCards } from "../src/utils/cards"; // <- hierher ausgelagert
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import CardDetailModal from "../src/components/CardDetailModal";
+import ScreenBackButton from "../src/components/ScreenBackButton";
+import { fetchAllCards } from "../src/utils/cards";
 
 export default function Gallery() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedCard, setSelectedCard] = useState(null);
   const [allCards, setAllCards] = useState([]);
 
@@ -21,25 +23,26 @@ export default function Gallery() {
     setAllCards(cards);
   }
 
-  // 🔹 Initial laden, wenn die Galerie geöffnet wird
   useEffect(() => {
     refreshCards();
   }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#111" }}>
+      <ScreenBackButton onPress={() => router.back()} />
+
       <Text
         style={{
           color: "#fff",
           fontSize: 22,
+          fontFamily: "DidactGothic",
           textAlign: "center",
-          marginTop: 20,
+          marginTop: insets.top + 44,
         }}
       >
         📖 Karten-Galerie
       </Text>
 
-      {/* Button: Karten aktualisieren */}
       <TouchableOpacity
         onPress={refreshCards}
         style={{
@@ -50,9 +53,7 @@ export default function Gallery() {
           alignSelf: "center",
         }}
       >
-        <Text style={{ color: "#fff", fontSize: 16 }}>
-          🔄 Karten aktualisieren
-        </Text>
+        <Text style={{ color: "#fff", fontSize: 16 }}>🔄 Karten aktualisieren</Text>
       </TouchableOpacity>
 
       <ScrollView
@@ -61,6 +62,7 @@ export default function Gallery() {
           flexWrap: "wrap",
           justifyContent: "center",
           padding: 10,
+          paddingBottom: insets.bottom + 16,
         }}
       >
         {allCards.map((card, index) => (
@@ -85,38 +87,12 @@ export default function Gallery() {
         ))}
       </ScrollView>
 
-      {/* Modal */}
-      <Modal visible={!!selectedCard} transparent animationType="fade">
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.8)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <Card
-            title={selectedCard?.name}
-            description={selectedCard?.effect}
-            image={selectedCard?.image}
-            type={selectedCard?.type}
-          />
-          <TouchableOpacity
-            onPress={() => setSelectedCard(null)}
-            style={{ marginTop: 20 }}
-          >
-            <Text style={{ color: "#fff", fontSize: 18 }}>Schließen</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Zurück */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={{ position: "absolute", top: 40, left: 20 }}
-      >
-        <Text style={{ color: "#fff", fontSize: 18 }}>← Zurück</Text>
-      </TouchableOpacity>
+      <CardDetailModal
+        visible={!!selectedCard}
+        card={selectedCard}
+        source="gallery"
+        onClose={() => setSelectedCard(null)}
+      />
     </View>
   );
 }

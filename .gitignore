@@ -12,6 +12,7 @@ yarn-error.log*
 
 # Expo
 .expo/
+.firebase/
 dist/
 web-build/
 expo-env.d.ts
@@ -60,6 +61,7 @@ google-services.json
 **/google-services.json
 GoogleService-Info.plist
 **/GoogleService-Info.plist
+*.firebaserc
 
 # Android signing
 key.properties

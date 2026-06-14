@@ -2,6 +2,8 @@
 
 *Stand: 2026-06-09 — Test-APK, kein Store-Release*
 
+**iPhone:** Kein APK — siehe [BUILD_WEB.md](BUILD_WEB.md) (öffentliches Web-Hosting).
+
 ---
 
 ## Projektart & Startordner
@@ -32,6 +34,7 @@ Kurz: **`Sauf Viel-Oh/`** (Projektroot — Git + npm).
 | `app.json` | ✅ Expo-Config; Android adaptive Icon |
 | `app.json` → `android.package` | ✅ `com.wodkao.app` |
 | `eas.json` | ✅ Profile `preview` (APK), `production` (AAB) |
+| `.easignore` | ✅ Upload-Optimierung (Docs, ungenutzte Assets) |
 | `app/_layout.js` | Einstieg über expo-router |
 | `.env` | Lokal (gitignored); Werte für EAS → siehe unten |
 
@@ -139,6 +142,92 @@ Alle `EXPO_PUBLIC_*` aus `.env.example` müssen beim Build gesetzt sein — sons
 
 Siehe auch [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md).
 
+### Navigation (APK / alle Screens)
+
+- **Kein nativer Stack-Header** — `app/_layout.js`: `headerShown: false`, `StatusBar` light
+- **Gallery:** `ScreenBackButton` („← Zurück“) statt System-Header
+- **Game:** rotes ✕ + Dialog „Willst du das Spiel wirklich verlassen?“; Android Hardware-Back → gleicher Dialog
+- Verlassen: `handleLeaveLobby` + `clearSession` → Home
+
+---
+
+## EAS Upload-Größe & `.easignore`
+
+Beim `eas build` packt die CLI ein Archiv des Projekts und lädt es hoch. Standardmäßig werden **`node_modules`** und **`.git`** nicht mitgesendet; alles Weitere folgt `.gitignore` — **oder**, falls vorhanden, **nur** `.easignore`.
+
+### Ist-Analyse (Projektroot)
+
+| Quelle | Größe (ca.) | Im Upload? |
+|--------|-------------|------------|
+| Letzter EAS-Upload (gemeldet) | **~288 MB** | — |
+| `node_modules/` | ~426 MB | ❌ immer ausgeschlossen |
+| `.git/` | ~165 MB | ❌ standardmäßig ausgeschlossen |
+| Arbeitsverzeichnis ohne `node_modules`/`.git` | ~206 MB | Basis vor `.easignore` |
+| Git-getrackte Dateien | ~130 MB | Referenz |
+
+**Hauptverursacher im Upload:** `assets/` (~205 MB), davon größtenteils **nicht für den Build benötigt**.
+
+| Pfad | Größe | Build nötig? |
+|------|-------|--------------|
+| `assets/images/cards/` | ~136 MB | ❌ — Kartenbilder kommen von GitHub Pages (`cards.js`) |
+| `assets/images/raw/` | ~60 MB | ❌ — Quell-PNGs, kein `require()` |
+| `assets/images/templates/` | ~2 MB | ✅ — Rahmen in `Card.js` |
+| Icons, Splash, `card_back`, `star` | ~6 MB | ✅ — `app.json`, `GameBoard`, etc. |
+| `assets/fonts/DidactGothic-Regular.ttf` | ~0,2 MB | ✅ — `app/_layout.js` |
+| `assets/fonts/starwarselon.webm` | ~1,1 MB | ❌ — nirgends importiert |
+| `docs/`, `scripts/`, `.cursor/` | &lt;0,2 MB | ❌ — nur Doku/Tests |
+
+### `.easignore` im Repo
+
+Datei: **`.easignore`** (Projektroot)
+
+Enthält:
+
+1. **Vollständige `.gitignore`-Regeln** (Pflicht — sonst würden z. B. `.env` oder `node_modules` mit hochgeladen)
+2. **Sichere Zusatz-Ausschlüsse:**
+   - `docs/`, `project.md`, `README.md`
+   - `.cursor/`, `.vscode/`, `.cursorignore`
+   - `scripts/` (Tests, Cleanup, Firebase-Functions-Snippet)
+   - `/components/`, `/hooks/`, `/constants/` (nur Expo-Template im **Root** — **nicht** `components/`, sonst wird `src/components/` mit ausgeschlossen → EAS-Bundle-Fehler)
+   - `assets/images/cards/` — größte Einsparung
+   - `assets/images/raw/`
+   - ungenutzte Fonts/Template-Bilder
+
+**Nicht ausgeschlossen** (Build-relevant):
+
+- `app/`, `src/`, `firebaseConfig.js`
+- `app.json`, `eas.json`, `package.json`, `package-lock.json`
+- `assets/images/` (Icons, Splash, `card_back`, `star`, `templates/`)
+- `assets/fonts/DidactGothic-Regular.ttf`
+- `.env.example` (kein Secret)
+
+### Geschätzte neue Upload-Größe
+
+| | MB (ca.) |
+|---|----------|
+| **Aktuell** | **~288 MB** (letzter Upload) / ~206 MB (Messung Arbeitsverzeichnis) |
+| Abzug `assets/images/cards/` | −136 MB |
+| Abzug `assets/images/raw/` | −60 MB |
+| Abzug Docs/Scripts/IDE/Rest | −2 MB |
+| **Neu geschätzt** | **~8–15 MB** (unkomprimiert), **~10–20 MB** Upload-Tarball |
+
+> Die größte Einsparung kommt von **ungenutzten Karten-PNGs**, die lokal liegen, aber zur Laufzeit von GitHub Pages geladen werden. Langfristig: `assets/images/cards/` aus Git entfernen (separates Aufräumen).
+
+### Upload-Größe prüfen
+
+Nach dem nächsten Build zeigt die EAS-CLI die Upload-Größe in der Konsole. Optional lokal (ohne Cloud-Build):
+
+```bash
+cd "Sauf Viel-Oh"
+eas build:inspect -p android -s archive -e preview -o ./eas-archive-inspect --force
+```
+
+Dann Größe von `./eas-archive-inspect` prüfen.
+
+### `node_modules` in `.easignore`
+
+`node_modules/` ist ausgeschlossen und wird auf EAS-Servern per `npm ci` / `npm install` neu installiert — **korrekt und empfohlen**.
+
 ---
 
 ## Schritte zur testbaren APK
@@ -206,6 +295,8 @@ npm run lint
 npx expo-doctor
 ```
 
+Siehe auch Abschnitt **EAS Upload-Größe & `.easignore`** oben.
+
 ---
 
 ## Bekannte Risiken / Blocker
@@ -220,6 +311,7 @@ npx expo-doctor
 | Große Remote-Bilder | Langsamer erster Load | Akzeptabel für MVP |
 | Expo SDK 54 Paket-Drift | `expo-doctor` Warnings | Vor Build prüfen |
 | `newArchEnabled: true` | Selten Build-Issues | Bei Fehler temporär deaktivieren testen |
+| Großes EAS-Upload-Archiv | Langsame Builds | ✅ `.easignore` — ungenutzte `assets/images/cards/` ausgeschlossen |
 
 ---
 
@@ -237,5 +329,6 @@ npx expo-doctor
 ## Verwandte Docs
 
 - [MVP_ROADMAP.md](MVP_ROADMAP.md) — Phasen & Checkliste
+- [BUILD_IOS.md](BUILD_IOS.md) — iPhone Teststrategie
 - [release-workflow.md](release-workflow.md) — späterer Store-Release
 - [security.md](security.md) — `EXPO_PUBLIC_*` sind im Client sichtbar

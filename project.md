@@ -7,7 +7,7 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 **npm package name:** `jahw3-app` (technisch, Expo-Projektname unverändert)  
 **Display name (UI):** Vod-ka-Oh!  
 **Version:** `1.0.0` (`app.json`, `package.json`)  
-**Phase:** MVP — APK-Test mit Freunden (kein Store) — siehe [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md)
+**Phase:** MVP — **Android = APK**, **iPhone = Web/Safari** — siehe [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md)
 
 ---
 
@@ -19,11 +19,13 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 | [docs/firebase_cleanup.md](docs/firebase_cleanup.md) | Lobby-Ablauf (2h), Admin-Cleanup, Cloud Functions |
 | [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md) | Ziel, Soll/Ist, Checkliste, Phasen 1–5 |
 | [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) | **Freunde-APK** — Must-fix, Build-Ops, 2-Geräte-Test |
-| [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) | EAS/APK-Befehle, Voraussetzungen |
+| [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) | EAS/APK-Befehle, `.easignore`, Upload-Größe |
+| [docs/BUILD_WEB.md](docs/BUILD_WEB.md) | **iPhone-MVP** — öffentliches Web-Hosting (Firebase) |
+| [docs/BUILD_IOS.md](docs/BUILD_IOS.md) | TestFlight (optional, nicht erster MVP) |
 | [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md) | Spielphasen & Regeln |
 | [docs/layout_system.md](docs/layout_system.md) | Tisch-Slot-Layout (Deck, Monster, Avatare) |
 | [docs/layout_debug.md](docs/layout_debug.md) | Viewport/Squash-Debug (Cursor Browser) |
-| [docs/project_structure_cleanup.md](docs/project_structure_cleanup.md) | Projektstruktur (ein Root seit 2026-06-13) |
+| [docs/STATE_TRANSITIONS.md](docs/STATE_TRANSITIONS.md) | Session, Reconnect, Phasen → Routen |
 
 **Alle Befehle vom Projektroot `Sauf Viel-Oh/`:**
 
@@ -39,23 +41,94 @@ npm run lint
 
 **Online-Multiplayer:** ✅ **Implementiert** (Firestore + Lobby-Code) — siehe [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md)
 
-**Schnellster Test heute:** 2 Browser/`npm run web` mit gleichem Lobby-Code — **Freunde-Test:** APK + gleiche Firebase-Config
+**Schnellster Test heute:** **Android:** APK ([BUILD_ANDROID.md](docs/BUILD_ANDROID.md)) — **iPhone:** öffentlicher Web-Link ([BUILD_WEB.md](docs/BUILD_WEB.md))
+
+### Plattform-MVP (Freunde-Test)
+
+| Plattform | Client | Verbindung |
+|-----------|--------|------------|
+| **Android** | Installierbare **APK** (EAS `preview`) | Firestore `lobbies/{code}` |
+| **iPhone** | **Safari** → öffentliche **Web-URL** (Firebase Hosting) | **Dieselbe** Firebase-Lobby |
+| **Kein erster MVP** | iOS-App / TestFlight | Optional später — [BUILD_IOS.md](docs/BUILD_IOS.md) |
+
+Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env` beim `expo export`.
 
 ---
 
 ## Aktueller Stand
 
-*Stand: 2026-06-13 (MVP-Release-Audit)*
+*Stand: 2026-06-09 (Late Join + MVP-Dokumentation)*
+
+### MVP-Fortschritt (geschätzt)
+
+| Bereich | % | Stand |
+|---------|---|-------|
+| Infrastruktur | **85 %** | Expo, Lint, Tests, EAS-Config |
+| Lobby | **90 %** | Erstellen, Join, Ready, Start |
+| Multiplayer | **80 %** | Sync + Late Join (Code ✅, Geräte-Test offen) |
+| Gameplay | **85 %** | Phasen, Saufstapel, Voting |
+| Android Build | **40 %** | Config da, kein EAS-Build |
+| iOS / iPhone (Web) | **35 %** | Export ✅, `firebase.json` ✅; Deploy + Safari-Test offen |
+| Firebase | **75 %** | Schema, Transaction-Join, Rules offen |
+| APK / Cross-Platform Testing | **10 %** | Kein Build; iPhone Safari noch nicht getestet |
+
+**Gesamt-MVP: ~72 %** — Details: [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md), Checkliste: [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md)
+
+### Neu umgesetzt (APK-Stabilität — 2026-06-13)
+
+- **Monster-Modal Crash-Fix** — `normalizeCardForDisplay`, sichere `Image`-Sources, Fallbacks
+- **ErrorBoundary** — app-weit in `app/_layout.js` (`src/components/ErrorBoundary.js` — muss in Git getrackt sein für EAS/Linux)
+- **Session Persistence** — `@react-native-async-storage/async-storage@2.2.0` (Expo SDK 54), „Letztes Spiel fortsetzen“ auf Home
+- **Reconnect-Flow** — Firestore-validiert, Route aus `status`/`gamePhase`
+- **Metro/AsyncStorage-Fix** — unvollständiges `node_modules` (fehlende `hooks.js`/`hooks.ts`); Fix: `node_modules` + `package-lock.json` löschen, `npm install`, `npx expo start -c`
+- **EAS Build-Fix (ErrorBoundary)** — `.easignore` hatte `components/` (ohne `/`) → schloss **`src/components/`** mit aus; Fix: `/components/`, `/hooks/`, `/constants/` (nur Expo-Template im Root). Datei `src/components/ErrorBoundary.js` + Import unverändert korrekt.
+- Doku: [docs/STATE_TRANSITIONS.md](docs/STATE_TRANSITIONS.md)
+
+### Neu umgesetzt (Navigation / Header — 2026-06-13)
+
+- **Kein nativer Stack-Header** — `headerShown: false` global in `app/_layout.js`
+- **StatusBar** — `expo-status-bar` light + Android `statusBar.translucent` in `app.json`
+- **Gallery** — eigener `ScreenBackButton`, kein „gallery“-Titel in der Nav-Leiste
+- **Game Exit** — rotes ✕ + Confirm-Dialog; Android `BackHandler` → gleicher Dialog
+- Verlassen: `handleLeaveLobby` + `clearSession` → Home (`/`)
+
+### Neu umgesetzt (Card-Modal Android-Fix — 2026-06-13)
+
+- **CardDetailModal** — einheitliches Modal für Galerie, Monster, Trap (`src/components/CardDetailModal.js`)
+- **Ursache:** `ResponsiveCard` nutzte `transform: scale` → auf Android unsichtbare Karte (nur Overlay + Schließen)
+- **Fix:** Volle Kartengröße in ScrollView, keine Transform-Skalierung; `imageName`-Fallback; Logging `[CARD MODAL OPEN]`
+- Tests: `npm run test:card-modal` (15), `npm run test:card-display` (11)
+- **APK neu bauen** nach Deploy des Fixes
+
+### Neu umgesetzt (Privater Web-Testzugang — 2026-06-13)
+
+- **Access Gate** — `TestAccessGate` vor App-Start (Web standardmäßig, APK offen)
+- **ENV** — `EXPO_PUBLIC_TEST_ACCESS_CODE`, optional `EXPO_PUBLIC_TEST_ACCESS_PLATFORMS`
+- **Speicher** — `wodkao:hasTestAccess` in AsyncStorage; Reload bleibt eingeloggt
+- **Noindex** — `public/robots.txt` + `app.json` `web.meta.robots`
+- Doku: [docs/PRIVATE_WEB_TESTING.md](docs/PRIVATE_WEB_TESTING.md)
+
+### Neu umgesetzt (Late Join — MVP-Pflicht)
+
+- Late Join für laufende Spiele (`status: "playing"`, alle `gamePhase`-Werte)
+- Firestore Transaction-basierter Join (`joinLobbyTransaction` in `lateJoin.js`)
+- Seat-Zuweisung (`seatIndex` — niedrigster freier Slot)
+- Automatische Monster-Zuweisung aus `monsterDeck` (keine Falle, keine Magie)
+- Turn-Order: Spieler ans Ende von `players[]`; `turn` unverändert
+- Join-Log / Join-Toast (`lastJoinAnnouncement`, `joinLog`, HUD-Toast in `game.js`)
+- Dokumentation und Unit-Tests (`test:late-join`, 21 Tests)
+
+---
 
 - **Firebase/Firestore** wieder funktionsfähig (Lobby + Spiel-Sync; Firestore Rules im Firebase Console für MVP geöffnet)
 - **Multiplayer-Lobby** funktioniert (Erstellen, Beitreten, Ready, Host-Start)
 - **Spielstart** mit Phasen (Würfeln → Monster → Spiel) — siehe [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md)
-- **Kein Mid-Game-Join** nach Start
+- **Late Join** — Beitritt jederzeit per Lobby-Code, auch während laufendem Spiel
 - **Pokertisch-Layout** — Slot-System (`tableSlotLayout.js`, `tableLayout.js`, `GameBoard.js`) — alle Objekte relativ zu `tableRect`
 - Spieler werden **nach Rolle** platziert (oben/unten/seitlich, max. 8); eigenes Monster zwischen Avatar und Tischmitte
 - **Avatare außerhalb** des Tisches; **Karten in definierten Slots** innerhalb der Tischfläche
 - **Lobby-Code** im Spiel sichtbar (`LobbyCodeBadge`, oben rechts, kopierbar auf Web)
-- Join während laufendem Spiel: **entfernt** (Beitritt blockiert)
+- Join während laufendem Spiel: **erlaubt** (Late Join — MVP-Pflicht)
 - **Mehrfachklick-Schutz** via `useAsyncLock` (Lobby + Game + Modals)
 - **Karten-Viewing-Presence** — Denkblase bei Monster-/Fallenkarten (`viewingCard` in Firestore)
 - **Lobby-Ablauf:** Lobbys ohne Aktivität >2h → `status: "expired"`, Join blockiert — siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md)
@@ -68,14 +141,14 @@ npm run lint
 |--------|-------|
 | Dienst | **Firestore only** (kein Auth, kein RTDB) |
 | Lobby-Code | 5 Zeichen = Document-ID `lobbies/{code}` |
-| Join | `joinLobby` — Code + Spielername |
+| Join | `joinLobby` / `joinLobbyTransaction` — Code + Spielername; Late Join erlaubt |
 | Host | `players[].isHost` — nur Host-UI für Start |
 | Live-Sync | `onSnapshot` in `useLobby` + `lobby.js` |
 | Login | **Nicht nötig** — Spielername reicht |
 | APK + mehrere Geräte | ✅ **Architektur vorhanden** — gleiche Firebase-Config in APK |
 | Schema-Doku | [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md) |
 
-**Einschränkungen:** Turn-Validierung nur Client-UI; keine Firestore Transactions; Internet + Sheets nötig.
+**Einschränkungen:** Turn-Validierung nur Client-UI; Late Join nutzt Firestore Transaction; sonst keine Transactions; Internet + Sheets nötig.
 
 ### Mobile Responsiveness (2026-06-09)
 
@@ -94,12 +167,18 @@ npm run lint
 
 **Spielablauf (Detail):** [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md)
 
-### Join während laufendem Spiel
+### Join während laufendem Spiel (Late Join — MVP-Pflicht)
 
 | Aspekt | Stand |
 |--------|-------|
-| Beitritt bei `status: "playing"` | **Blockiert** |
-| Mid-Game-Karten | Entfernt — kein Join nach Start |
+| Beitritt bei `status: "playing"` | **Erlaubt** — `joinLobbyTransaction` |
+| Beitritt bei `status: "finished"` / `"expired"` | **Blockiert** |
+| Late-Join-Monster | Zufällig aus `monsterDeck` (Firestore Transaction) |
+| Start-Falle / Magie | **Keine** für Late Joiner |
+| Turn-Order | Spieler ans Ende von `players[]`; `turn` unverändert |
+| Aktueller Zug | Bleibt stabil — kein Sprung des activePlayer |
+| UI nach Join | Info: „Du bist dem laufenden Spiel beigetreten …“ |
+| Leeres Monsterdeck | Join trotzdem; Hinweis „Kein Monster mehr verfügbar“ (TODO: Balancing) |
 
 ### Spielphasen (`gamePhase`)
 
@@ -190,6 +269,7 @@ npm run lint
 
 | Datum | Fix |
 |-------|-----|
+| 2026-06-09 | **Late Join (MVP):** Transaction-Join, Seat/Monster, Join-Toast, Unit-Tests, Release-Checkliste — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
 | 2026-06-13 | **MVP-Release-Audit:** `MagicCardModal` me-Guard, `VotePanel` entfernt (nur Modal), `reactions` bei Start für alle Spieler, Action-Bar während Voting aus — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
 | 2026-06-13 | **Game-Screen Touch-UX:** Improved draw button touch target and made full lobby-code panel clickable with copy feedback (`GameActionBar`, `LobbyCodeBadge`, `expo-clipboard`). |
 | 2026-06-13 | **Monster-Slots am Tischrand:** Top/Bottom-Monster nahe Tischrand (15–25 px), Mitte frei für Stapel — [docs/layout_system.md](docs/layout_system.md) |
@@ -250,9 +330,11 @@ npm run lint
 | Area | Technology |
 |------|------------|
 | Framework | **React Native** 0.81 + **Expo** ~54 (managed workflow) |
-| Routing | **expo-router** ~6 |
+| Routing | **expo-router** ~6 — **ohne** nativen Header (`headerShown: false`) |
 | Language | JavaScript (TypeScript config, code mostly `.js`) |
 | Backend | **Firebase Firestore** (realtime multiplayer) |
+| Local persistence | **AsyncStorage** (`@react-native-async-storage/async-storage@2.2.0`) — Session Pointer `wodkao:lastSession` in `src/utils/sessionStorage.js` |
+| Web test gate | **TestAccessGate** — `EXPO_PUBLIC_TEST_ACCESS_CODE` (MVP UI-Schutz, kein Auth) |
 | Card data | Google Sheets CSV + PapaParse |
 | Card images | Local `assets/images/cards/` + remote GitHub Pages fallback |
 | Package manager | **npm** (`package-lock.json`) |
@@ -629,7 +711,7 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 | Ablage | `(X)` | `lobby.discardPile.length` |
 | Fallen (Spieler) | `(X)` | `players.filter(p => p.trap).length` |
 
-**Join nach Spielstart:** **Blockiert** in `joinLobby` wenn `status === "playing"`.
+**Join nach Spielstart:** **Erlaubt** (Late Join) — `joinLobbyTransaction` in `lateJoin.js`; nur `finished`/`expired` blockiert.
 
 **Karten-Presence (Denkblase):**
 
@@ -645,7 +727,7 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 ## Features (current)
 
 - Startscreen with player name + Firestore test
-- Multiplayer lobby (create/join, ready, host start)
+- Multiplayer lobby (create/join, ready, host start, **late join**)
 - Turn-based game: monster/trap/magic cards
 - Magic draw, voting, reactions, timers
 - Card gallery from Google Sheets
@@ -657,7 +739,8 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 | Priority | Item |
 |----------|------|
 | ~~Hoch~~ | ~~Fix lint errors~~ — ✅ erledigt (Stabilisierung Session) |
-| Hoch | Ersten Push nach `WodkaO` vorbereiten (nach Lint-Fix + Commit) |
+| Hoch | **APK-Build + Multi-Device-Test** inkl. Late Join — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
+| Hoch | Firestore Security Rules vor Freunde-Test verifizieren |
 | Mittel | Local card data fallback (reduce Sheets dependency) |
 | Mittel | Add `typecheck` / `test` scripts when tests exist |
 | ~~Niedrig~~ | ~~Add `eas.json` for release builds~~ — ✅ erledigt |

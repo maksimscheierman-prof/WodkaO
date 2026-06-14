@@ -47,8 +47,31 @@ Technik: [FIREBASE_SCHEMA.md](FIREBASE_SCHEMA.md)
   - **`monsterDeck`** — nur Monsterkarten
   - **`saufDeck`** — Magie + Fallen (gemischt)
 - `status` → `"playing"`, `gamePhase` → `"rollingForStartPlayer"`.
-- **Kein Beitritt** mehr, sobald `status === "playing"`.
+- **Late Join:** Beitritt per Lobby-Code bleibt möglich, solange `status !== "finished"` und nicht `expired`.
 - **Lobby-Ablauf:** Nach 2 Stunden ohne Aktivität (`lastActivityAt`) wird die Lobby `status: "expired"` — Details: [firebase_cleanup.md](firebase_cleanup.md).
+
+---
+
+## Late Join (MVP-Pflicht)
+
+Spieler können **jederzeit** per Code beitreten, auch während Würfelphase, Monsterziehen oder laufender Runde.
+
+| Regel | Verhalten |
+|-------|-----------|
+| Erlaubt | `status: "playing"` (alle `gamePhase`-Werte) |
+| Blockiert | `status: "finished"` oder `"expired"` |
+| Monster | Sofort zufällig aus `monsterDeck` (Transaction) |
+| Falle / Magie | Keine Startkarten |
+| Turn-Order | Ans Ende von `players[]`; `turn` bleibt unverändert |
+| Aktueller Zug | Kein Sprung — Late Joiner zieht erst bei eigenem Zug |
+| Leeres Monsterdeck | Join möglich; Hinweis „Kein Monster mehr verfügbar“ |
+| Sync | `lastJoinAnnouncement` + optional `joinLog` für Live-UI |
+
+Implementierung: `src/utils/lateJoinCore.js`, `src/utils/lateJoin.js`, `app/lobby.js`.
+
+**Reconnect nach App-Neustart:** [STATE_TRANSITIONS.md](STATE_TRANSITIONS.md) — AsyncStorage-Session + „Letztes Spiel fortsetzen“.
+
+**Release-Checks (Multi-Device):** [MVP_RELEASE_CHECKLIST.md](MVP_RELEASE_CHECKLIST.md#multiplayer--late-join)
 
 ---
 
