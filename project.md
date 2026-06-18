@@ -39,7 +39,7 @@ npm run lint
 
 **Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web
 
-**APK-Status:** ✅ **EAS Build erfolgreich** — letzter Build `001eda55` (2026-06-18, Commit `c2cc056`, Profil `preview`) — [APK](https://expo.dev/artifacts/eas/AwaOuPUdHG6KECFrygkkNrLdkEOaSWkBv8gm-PtyeT4.apk) · [Build-Log](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/001eda55-ecab-4982-9acd-854eedec1706)
+**APK-Status:** ✅ **EAS Build erfolgreich** — letzter Build `1907b4bf` (2026-06-18, Commit `0407a89`, Profil `preview`, **fontSize-0-Fix**) — [APK](https://expo.dev/artifacts/eas/_ZsCR8jrV3fu8w7SS8yiqi_NcuCS7T4D0DClqxpMIJU.apk) · [Build-Log](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/1907b4bf-c7b5-491e-b40f-5562fe8b1111)
 
 **Online-Multiplayer:** ✅ **Implementiert** (Firestore + Lobby-Code) — siehe [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md)
 
