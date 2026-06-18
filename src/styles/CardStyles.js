@@ -45,7 +45,7 @@ export const cardStyles = StyleSheet.create({
     zIndex: 99,
   },
 
-  // Typ-Leiste (unter Bild, vor Effekt) — visuell ausgeblendet (opacity), nie fontSize: 0 (Android Fabric crash)
+  // Typ-Leiste (unter Bild, vor Effekt) — visuell ausgeblendet via opacity (Android Fabric: kein fontSize null)
   typeLabel: {
     position: "absolute",
     top: 410,
