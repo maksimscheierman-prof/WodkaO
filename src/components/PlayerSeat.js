@@ -5,6 +5,10 @@ import {
   isValidPlayableCard,
   normalizeCardForDisplay,
 } from "../utils/cardDisplay";
+import {
+  recordCardModalDebug,
+  recordCardModalError,
+} from "../utils/cardModalDebug";
 import { getViewingCardLabel } from "../utils/viewingCardText";
 import PlayerNameLabel from "./PlayerNameLabel";
 import PlayerSilhouette from "./PlayerSilhouette";
@@ -33,40 +37,60 @@ export default function PlayerSeat({
     : null;
 
   const openSeatCard = (rawCard, cardType) => {
-    const defaultType = cardType === "trap" ? "trap" : "monster";
-    const pressLog = getMonsterPressLog(rawCard, {
-      defaultType,
-      playerKey: player.id || player.name,
-      playerName: player.name,
-    });
-    console.log(
-      cardType === "monster" ? "[MONSTER PRESS]" : "[TRAP PRESS]",
-      pressLog
-    );
-
-    if (!isValidPlayableCard(rawCard, { defaultType })) {
-      console.warn("[CARD PRESS] Invalid card", pressLog);
-      Alert.alert(
-        "Karte nicht verfügbar",
-        "Diese Karte konnte nicht geladen werden."
+    try {
+      const defaultType = cardType === "trap" ? "trap" : "monster";
+      const pressLog = getMonsterPressLog(rawCard, {
+        defaultType,
+        playerKey: player.id || player.name,
+        playerName: player.name,
+      });
+      recordCardModalDebug("board_press", {
+        ...pressLog,
+        owner: player.name,
+        isMe,
+      });
+      console.log(
+        cardType === "monster" ? "[MONSTER PRESS]" : "[TRAP PRESS]",
+        pressLog
       );
-      return;
-    }
 
-    const normalized = normalizeCardForDisplay(
-      { ...rawCard, type: defaultType },
-      { defaultType }
-    );
-    if (!normalized) {
-      console.warn("[CARD PRESS] Normalize failed", pressLog);
-      Alert.alert(
-        "Karte nicht verfügbar",
-        "Diese Karte konnte nicht angezeigt werden."
+      if (!isValidPlayableCard(rawCard, { defaultType })) {
+        recordCardModalDebug("board_press_invalid", pressLog);
+        console.warn("[CARD PRESS] Invalid card", pressLog);
+        Alert.alert(
+          "Karte nicht verfügbar",
+          "Diese Karte konnte nicht geladen werden."
+        );
+        return;
+      }
+
+      const normalized = normalizeCardForDisplay(
+        { ...rawCard, type: defaultType },
+        { defaultType }
       );
-      return;
-    }
+      if (!normalized) {
+        recordCardModalDebug("board_press_normalize_failed", pressLog);
+        console.warn("[CARD PRESS] Normalize failed", pressLog);
+        Alert.alert(
+          "Karte nicht verfügbar",
+          "Diese Karte konnte nicht angezeigt werden."
+        );
+        return;
+      }
 
-    onSelectCard(normalized, player.name);
+      recordCardModalDebug("board_press_ok", {
+        name: normalized.name,
+        type: normalized.type,
+        imageUri: normalized.image?.uri ?? null,
+      });
+      onSelectCard(normalized, player.name);
+    } catch (err) {
+      recordCardModalError("board_press_exception", err, {
+        playerName: player?.name,
+        cardType,
+      });
+      Alert.alert("Fehler", "Karte konnte nicht geöffnet werden.");
+    }
   };
 
   const monsterSource = player.monster

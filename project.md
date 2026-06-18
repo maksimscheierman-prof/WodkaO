@@ -27,7 +27,7 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 | [docs/layout_debug.md](docs/layout_debug.md) | Viewport/Squash-Debug (Cursor Browser) |
 | [docs/STATE_TRANSITIONS.md](docs/STATE_TRANSITIONS.md) | Session, Reconnect, Phasen → Routen |
 | [docs/PRIVATE_WEB_TESTING.md](docs/PRIVATE_WEB_TESTING.md) | Privater Web-Zugang (Access Gate, noindex) |
-| [docs/chatgpt-uebergabe.md](docs/chatgpt-uebergabe.md) | Kompakte Übergabe für externe KI-Sessions |
+| [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md) | **Android** — Monster-Modal Crash, logcat, Debug-Overlay |
 
 **Alle Befehle vom Projektroot `Sauf Viel-Oh/`:**
 
@@ -39,7 +39,7 @@ npm run lint
 
 **Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web
 
-**APK-Status:** ✅ **EAS Build erfolgreich** — letzter Build `a762578b` (2026-06-14, Profil `preview`) — [APK](https://expo.dev/artifacts/eas/m92ZAHz4LWCY1pSOuRn-CeOOn-pNxruUKORXEeP0RoA.apk) · [Build-Log](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/a762578b-8315-49a9-912d-90aa7420fbd8) — Geräte-Smoke-Test noch offen ([docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md))
+**APK-Status:** ✅ **EAS Build erfolgreich** — letzter Build `001eda55` (2026-06-18, Commit `c2cc056`, Profil `preview`) — [APK](https://expo.dev/artifacts/eas/AwaOuPUdHG6KECFrygkkNrLdkEOaSWkBv8gm-PtyeT4.apk) · [Build-Log](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/001eda55-ecab-4982-9acd-854eedec1706)
 
 **Online-Multiplayer:** ✅ **Implementiert** (Firestore + Lobby-Code) — siehe [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md)
 
@@ -95,10 +95,12 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ### Neu umgesetzt (Monster-Modal Android-Crash — 2026-06-18)
 
-- **Ursache:** Unsichere Image-Sources (`null`/leere URI), unvollständige Normalisierung, Race mit `setViewingCard`
-- **Fix:** `cardDisplayCore.js` — URI-Validation, `getNativeImageSourceFromCard`, `getMonsterPressLog`; `Card.js` — `expo-image` + `onError` → `card_back.png`; `PlayerSeat`/`GameBoard` — nie `source={null}`; Viewing-Presence deferred + Guards
-- **Logs:** `[MONSTER PRESS]`, `[CARD MODAL OPEN]`, `[CARD IMAGE ERROR]`
-- Tests: `test:card-modal` (19), `test:card-display` (20)
+- **Symptom:** Preview-APK crasht beim Antippen des Monsters auf dem Spielfeld
+- **Debug-Pfad:** [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md) — logcat, `EXPO_PUBLIC_CARD_MODAL_DEBUG`, Overlay auf Game-Screen
+- **Hypothese (logcat ausstehend):** Board-Thumbnail (`Image`) OK; volles `Card`-Template im Modal (`ImageBackground` + nested `expo-image`) → nativer Android-Crash
+- **Fix:** `AndroidSafeCardDetail` standardmäßig auf Android im `CardDetailModal`; volles `Card` nur mit `EXPO_PUBLIC_CARD_MODAL_SAFE_ANDROID=0` (Repro)
+- **Instrumentierung:** `cardModalDebug.js`, Phasen-Logs `board_press` → `modal_native_on_show`, global `ErrorUtils` handler
+- **Sentry:** nicht konfiguriert
 
 ### Neu umgesetzt (Navigation / Header — 2026-06-13)
 
@@ -788,7 +790,7 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 | **Ziel-Repo** | https://github.com/maksimscheierman-prof/WodkaO |
 | **Repo-Pfad** | `Sauf Viel-Oh/.git` |
 | **Branch** | `feature/mvp-online-apk` |
-| **Letzter Commit** | `f59af81` — `feat: improve mobile navigation, remove native headers and update MVP documentation` |
+| **Letzter Commit** | `c2cc056` — `fix: prevent Android monster modal crash and improve web layout` |
 | **Working tree** | Sauber (nur lokale IDE-Settings `.vscode/settings.json` uncommitted) |
 
 Push-Status: Branch lokal; Push nur auf explizite Anweisung.

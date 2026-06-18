@@ -7,6 +7,7 @@ import {
   DEFAULT_CARD_IMAGE,
   normalizeCardImage,
 } from "../utils/cardDisplay";
+import { recordCardModalDebug } from "../utils/cardModalDebug";
 
 const CARD_BACK = require("../../assets/images/card_back.png");
 
@@ -59,11 +60,18 @@ export default function Card({
     : 0;
 
   const handleImageError = (err) => {
+    const message = err?.nativeEvent?.error ?? err?.error ?? String(err);
+    recordCardModalDebug("card_image_error", {
+      type: normalizedType,
+      title: safeTitle,
+      imageUri: imageSource?.uri ?? null,
+      error: message,
+    });
     console.warn("[CARD IMAGE ERROR]", {
       type: normalizedType,
       title: safeTitle,
       source: imageSource,
-      error: err?.nativeEvent?.error ?? err,
+      error: message,
     });
     setImageFailed(true);
   };

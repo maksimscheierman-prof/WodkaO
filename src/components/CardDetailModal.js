@@ -16,9 +16,12 @@ import {
 } from "../utils/cardDisplay";
 import { shouldShowCardModal } from "../utils/cardModalCore";
 import {
-  CARD_BASE_WIDTH,
-  getModalCardDimensions,
-} from "../utils/responsive";
+  recordCardModalDebug,
+  recordCardModalError,
+  shouldUseAndroidSafeCardModal,
+} from "../utils/cardModalDebug";
+import { getModalCardDimensions } from "../utils/responsive";
+import AndroidSafeCardDetail from "./AndroidSafeCardDetail";
 import Card from "./Card";
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -36,7 +39,20 @@ const closeBtnStyle = {
   elevation: 20,
 };
 
-function CardModalBody({ normalized, displayType, maxCardArea }) {
+function CardModalBody({ normalized, displayType, maxCardArea, renderMode }) {
+  recordCardModalDebug("modal_body_render_start", {
+    name: normalized?.name,
+    type: displayType,
+    imageUri: normalized?.image?.uri ?? null,
+    renderMode,
+  });
+
+  if (renderMode === "android-safe") {
+    return (
+      <AndroidSafeCardDetail normalized={normalized} displayType={displayType} />
+    );
+  }
+
   return (
     <>
       <View
@@ -44,7 +60,7 @@ function CardModalBody({ normalized, displayType, maxCardArea }) {
         style={{
           flexShrink: 0,
           maxHeight: maxCardArea,
-          width: CARD_BASE_WIDTH,
+          width: 320,
           zIndex: 10,
           elevation: 10,
         }}
@@ -79,7 +95,7 @@ function CardModalBody({ normalized, displayType, maxCardArea }) {
 }
 
 /**
- * Unified card detail modal — gallery, monster, trap (Android-safe, no transform scale).
+ * Unified card detail modal — gallery, monster, trap.
  */
 export default function CardDetailModal({
   visible,
@@ -94,6 +110,8 @@ export default function CardDetailModal({
     screenHeight,
     200
   );
+  const useAndroidSafe = shouldUseAndroidSafeCardModal();
+  const renderMode = useAndroidSafe ? "android-safe" : "full-card";
 
   const normalized = useMemo(() => {
     if (!card) return null;
@@ -102,14 +120,29 @@ export default function CardDetailModal({
         typeof card.type === "string" ? card.type.toLowerCase() : undefined;
       return normalizeCardForDisplay(card, { defaultType });
     } catch (err) {
-      console.error("[CARD MODAL NORMALIZE]", { source, err, card });
+      recordCardModalError("modal_normalize", err, { source });
       return null;
     }
   }, [card, source]);
 
   useEffect(() => {
-    if (!visible || !card) return;
-    console.log("[CARD MODAL OPEN]", getCardOpenLog(card, source));
+    if (!visible) {
+      recordCardModalDebug("modal_closed", { modalOpen: false, source });
+      return;
+    }
+    if (!card) return;
+
+    const openLog = getCardOpenLog(card, source);
+    recordCardModalDebug("modal_open_request", {
+      modalOpen: true,
+      source,
+      name: openLog.name,
+      type: openLog.type,
+      imageUri: openLog.imageUri,
+      renderMode,
+    });
+    console.log("[CARD MODAL OPEN]", openLog);
+
     if (!normalized) {
       Alert.alert(
         "Karte nicht verfügbar",
@@ -117,7 +150,7 @@ export default function CardDetailModal({
       );
       onClose?.();
     }
-  }, [visible, card, normalized, source, onClose]);
+  }, [visible, card, normalized, source, onClose, renderMode]);
 
   if (!shouldShowCardModal(visible, card) || !normalized) return null;
 
@@ -134,13 +167,27 @@ export default function CardDetailModal({
           ? "trap"
           : "monster";
 
+  recordCardModalDebug("modal_render_commit", {
+    modalOpen: true,
+    name: normalized.name,
+    type: displayType,
+    imageUri: normalized.image?.uri ?? null,
+    renderMode,
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType={Platform.OS === "android" ? "none" : "fade"}
       onRequestClose={onClose}
-      statusBarTranslucent={Platform.OS === "android"}
+      statusBarTranslucent={false}
+      onShow={() =>
+        recordCardModalDebug("modal_native_on_show", {
+          name: normalized.name,
+          renderMode,
+        })
+      }
     >
       <View
         style={{
@@ -162,11 +209,14 @@ export default function CardDetailModal({
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={false}
         >
-          <ErrorBoundary context={{ source, cardName: normalized.name }}>
+          <ErrorBoundary
+            context={{ source, cardName: normalized.name, renderMode }}
+          >
             <CardModalBody
               normalized={normalized}
               displayType={displayType}
               maxCardArea={maxCardArea}
+              renderMode={renderMode}
             />
           </ErrorBoundary>
 

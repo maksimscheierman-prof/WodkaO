@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { db } from "../firebaseConfig";
 
 import CardModal from "../src/components/CardModal";
+import CardModalDebugOverlay from "../src/components/CardModalDebugOverlay";
 
 import GameActionBar from "../src/components/GameActionBar";
 import GameBoard from "../src/components/GameBoard";
@@ -56,6 +57,10 @@ import {
   isValidPlayableCard,
   normalizeCardForDisplay,
 } from "../src/utils/cardDisplay";
+import {
+  recordCardModalDebug,
+  recordCardModalError,
+} from "../src/utils/cardModalDebug";
 import { clearSession, saveSession } from "../src/utils/sessionStorage";
 import { hiddenHeaderScreenOptions } from "../src/utils/stackScreenOptions";
 
@@ -285,68 +290,91 @@ export default function Game() {
 
   const handleSelectCard = useCallback(
     (card, ownerName) => {
-      const defaultType =
-        typeof card?.type === "string" ? card.type.toLowerCase() : "monster";
-      const pressLog = getMonsterPressLog(card, {
-        defaultType,
-        playerKey: playerName,
-        playerName: ownerName,
-      });
+      try {
+        const defaultType =
+          typeof card?.type === "string" ? card.type.toLowerCase() : "monster";
+        const pressLog = getMonsterPressLog(card, {
+          defaultType,
+          playerKey: playerName,
+          playerName: ownerName,
+        });
 
-      if (defaultType === "monster") {
-        console.log("[MONSTER PRESS]", pressLog);
-      }
-
-      if (!isValidPlayableCard(card, { defaultType })) {
-        console.error("[CARD SELECT] Invalid card", {
-          route: "game",
-          lobbyId,
-          playerName,
-          ownerName,
+        recordCardModalDebug("game_select_card", {
           ...pressLog,
+          ownerName,
+          lobbyId,
         });
-        Alert.alert(
-          "Karte nicht verfügbar",
-          "Diese Karte konnte nicht geladen werden."
-        );
-        return;
-      }
 
-      const normalized = normalizeCardForDisplay(card, { defaultType });
-      if (!normalized) {
-        console.error("[CARD SELECT] Normalize failed", pressLog);
-        Alert.alert(
-          "Karte nicht verfügbar",
-          "Diese Karte konnte nicht angezeigt werden."
-        );
-        return;
-      }
+        if (defaultType === "monster") {
+          console.log("[MONSTER PRESS]", pressLog);
+        }
 
-      console.log("[CARD SELECT]", getCardOpenLog(card, "game"));
-      console.log("[CARD MODAL OPEN]", getCardOpenLog(normalized, "gameModal"));
-      setSelectedCard(normalized);
+        if (!isValidPlayableCard(card, { defaultType })) {
+          recordCardModalDebug("game_select_invalid", pressLog);
+          console.error("[CARD SELECT] Invalid card", {
+            route: "game",
+            lobbyId,
+            playerName,
+            ownerName,
+            ...pressLog,
+          });
+          Alert.alert(
+            "Karte nicht verfügbar",
+            "Diese Karte konnte nicht geladen werden."
+          );
+          return;
+        }
 
-      const type =
-        typeof normalized.type === "string"
-          ? normalized.type.toLowerCase()
-          : "";
-      if (
-        ownerName === playerName &&
-        (type === "monster" || type === "trap") &&
-        lobby &&
-        lobbyId
-      ) {
-        queueMicrotask(() => {
-          actions
-            .setViewingCard(lobbyRef, lobby, playerName, type)
-            .catch((err) => console.error("[VIEWING CARD]", err));
+        const normalized = normalizeCardForDisplay(card, { defaultType });
+        if (!normalized) {
+          recordCardModalDebug("game_select_normalize_failed", pressLog);
+          console.error("[CARD SELECT] Normalize failed", pressLog);
+          Alert.alert(
+            "Karte nicht verfügbar",
+            "Diese Karte konnte nicht angezeigt werden."
+          );
+          return;
+        }
+
+        console.log("[CARD SELECT]", getCardOpenLog(card, "game"));
+        console.log("[CARD MODAL OPEN]", getCardOpenLog(normalized, "gameModal"));
+        recordCardModalDebug("game_set_selected_card", {
+          modalOpen: true,
+          name: normalized.name,
+          type: normalized.type,
+          imageUri: normalized.image?.uri ?? null,
         });
+        setSelectedCard(normalized);
+
+        const type =
+          typeof normalized.type === "string"
+            ? normalized.type.toLowerCase()
+            : "";
+        if (
+          ownerName === playerName &&
+          (type === "monster" || type === "trap") &&
+          lobby &&
+          lobbyId
+        ) {
+          queueMicrotask(() => {
+            actions
+              .setViewingCard(lobbyRef, lobby, playerName, type)
+              .catch((err) => {
+                recordCardModalError("viewing_card_set", err, { type });
+                console.error("[VIEWING CARD]", err);
+              });
+          });
+        }
+      } catch (err) {
+        recordCardModalError("game_select_exception", err, { ownerName });
+        Alert.alert("Fehler", "Karte konnte nicht geöffnet werden.");
       }
     },
     [lobby, lobbyId, lobbyRef, playerName]
   );
 
   const handleCloseCardModal = useCallback(() => {
+    recordCardModalDebug("game_close_modal", { modalOpen: false });
     setSelectedCard(null);
     if (lobby) {
       actions
@@ -357,6 +385,22 @@ export default function Game() {
 
   const presenceCleanupRef = useRef({ lobby: null, lobbyRef, playerName });
   presenceCleanupRef.current = { lobby, lobbyRef, playerName };
+
+  useEffect(() => {
+    const previousHandler = global.ErrorUtils?.getGlobalHandler?.();
+    if (!global.ErrorUtils?.setGlobalHandler) return undefined;
+
+    global.ErrorUtils.setGlobalHandler((error, isFatal) => {
+      recordCardModalError("global_handler", error, { isFatal });
+      previousHandler?.(error, isFatal);
+    });
+
+    return () => {
+      if (previousHandler) {
+        global.ErrorUtils.setGlobalHandler(previousHandler);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -655,6 +699,8 @@ export default function Game() {
         )}
 
       </LinearGradient>
+
+      <CardModalDebugOverlay />
 
     </>
 

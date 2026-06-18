@@ -16,6 +16,7 @@
     "test:card-display": "node ./scripts/test_card_display.js",
     "test:player-seat": "node ./scripts/test_player_seat.js",
     "test:card-modal": "node ./scripts/test_card_modal.js",
+    "test:card-modal-debug": "node ./scripts/test_card_modal_debug.js",
     "test:session-resume": "node ./scripts/test_session_resume.js",
     "test:test-access": "node ./scripts/test_test_access.js",
     "test:table-layout": "node ./scripts/test_table_layout.js",

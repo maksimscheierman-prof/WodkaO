@@ -10,6 +10,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CARD_MODAL_DEBUG": "1"
+      },
       "android": {
         "buildType": "apk"
       },
