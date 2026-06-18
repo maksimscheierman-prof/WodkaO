@@ -7,6 +7,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { db } from "../firebaseConfig";
 import { loadSession } from "../src/utils/sessionStorage";
 import { resolveResumeSession } from "../src/utils/sessionResume";
+import { hiddenHeaderScreenOptions } from "../src/utils/stackScreenOptions";
+
+export const options = hiddenHeaderScreenOptions;
 
 export default function Index() {
   const router = useRouter();

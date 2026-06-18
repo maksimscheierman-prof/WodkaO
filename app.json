@@ -30,6 +30,7 @@
     },
     "web": {
       "output": "static",
+      "backgroundColor": "#1a0033",
       "favicon": "./assets/images/favicon.png",
       "meta": {
         "robots": "noindex, nofollow"

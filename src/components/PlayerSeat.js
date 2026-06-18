@@ -1,6 +1,7 @@
-import { Image, TouchableOpacity, View } from "react-native";
+import { Alert, Image, TouchableOpacity, View } from "react-native";
 import {
-  getImageSourceForNative,
+  getMonsterPressLog,
+  getNativeImageSourceFromCard,
   isValidPlayableCard,
   normalizeCardForDisplay,
 } from "../utils/cardDisplay";
@@ -31,9 +32,49 @@ export default function PlayerSeat({
     ? getViewingCardLabel(player?.viewingCard?.type)
     : null;
 
+  const openSeatCard = (rawCard, cardType) => {
+    const defaultType = cardType === "trap" ? "trap" : "monster";
+    const pressLog = getMonsterPressLog(rawCard, {
+      defaultType,
+      playerKey: player.id || player.name,
+      playerName: player.name,
+    });
+    console.log(
+      cardType === "monster" ? "[MONSTER PRESS]" : "[TRAP PRESS]",
+      pressLog
+    );
+
+    if (!isValidPlayableCard(rawCard, { defaultType })) {
+      console.warn("[CARD PRESS] Invalid card", pressLog);
+      Alert.alert(
+        "Karte nicht verfügbar",
+        "Diese Karte konnte nicht geladen werden."
+      );
+      return;
+    }
+
+    const normalized = normalizeCardForDisplay(
+      { ...rawCard, type: defaultType },
+      { defaultType }
+    );
+    if (!normalized) {
+      console.warn("[CARD PRESS] Normalize failed", pressLog);
+      Alert.alert(
+        "Karte nicht verfügbar",
+        "Diese Karte konnte nicht angezeigt werden."
+      );
+      return;
+    }
+
+    onSelectCard(normalized, player.name);
+  };
+
+  const monsterSource = player.monster
+    ? getNativeImageSourceFromCard(player.monster)
+    : null;
+
   return (
     <>
-      {/* Ebene 2: Karten am Tischrand */}
       <View
         style={{
           position: "absolute",
@@ -53,22 +94,13 @@ export default function PlayerSeat({
             backgroundColor: "rgba(0,0,0,0.18)",
           }}
         >
-          {player.monster && (
+          {player.monster && monsterSource && (
             <TouchableOpacity
-              onPress={() => {
-                if (!isValidPlayableCard(player.monster)) return;
-                onSelectCard(
-                  normalizeCardForDisplay({
-                    ...player.monster,
-                    type: "monster",
-                  }),
-                  player.name
-                );
-              }}
+              onPress={() => openSeatCard(player.monster, "monster")}
               hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
             >
               <Image
-                source={getImageSourceForNative(player.monster.image)}
+                source={monsterSource}
                 style={{
                   width: cardWidth,
                   height: cardHeight,
@@ -81,13 +113,7 @@ export default function PlayerSeat({
           )}
           {player.trap && (
             <TouchableOpacity
-              onPress={() => {
-                if (!isValidPlayableCard(player.trap)) return;
-                onSelectCard(
-                  normalizeCardForDisplay({ ...player.trap, type: "trap" }),
-                  player.name
-                );
-              }}
+              onPress={() => openSeatCard(player.trap, "trap")}
               hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
             >
               <Image
@@ -105,7 +131,6 @@ export default function PlayerSeat({
         </View>
       </View>
 
-      {/* Ebene 3: Avatar + ein Name-Label */}
       <View
         style={{
           position: "absolute",

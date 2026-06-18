@@ -22,6 +22,9 @@ import {
 } from "../src/utils/lobbyLifecycle";
 import { joinLobbyTransaction } from "../src/utils/lateJoin";
 import { clearSession, saveSession } from "../src/utils/sessionStorage";
+import { hiddenHeaderScreenOptions } from "../src/utils/stackScreenOptions";
+
+export const options = hiddenHeaderScreenOptions;
 
 // Lobby-Code Generator
 const generateCode = () => {

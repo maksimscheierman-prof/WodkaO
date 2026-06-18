@@ -13,6 +13,7 @@ import {
   MIN_BOARD_HEIGHT,
   orderPlayersWithMeAtBottom,
 } from "../utils/tableLayout";
+import { getNativeImageSourceFromCard } from "../utils/cardDisplay";
 import {
   DEBUG_SLOT_COLORS,
   isLayoutDebugEnabled,
@@ -23,12 +24,12 @@ import PlayerSeat from "./PlayerSeat";
 
 const CARD_BACK = require("../../assets/images/card_back.png");
 
-const getImageSource = (img) => {
-  if (!img) return null;
-  if (typeof img === "number") return img;
-  if (img.uri) return { uri: img.uri };
-  if (typeof img === "string") return { uri: img };
-  return null;
+const getImageSource = (cardOrImage) => {
+  if (!cardOrImage) return CARD_BACK;
+  if (cardOrImage.image != null || cardOrImage.imageName != null) {
+    return getNativeImageSourceFromCard(cardOrImage);
+  }
+  return getNativeImageSourceFromCard({ image: cardOrImage });
 };
 
 function SlotDebugRect({ slot, color, label }) {
@@ -128,7 +129,7 @@ export default function GameBoard({
     ? lobby.discardPile[lobby.discardPile.length - 1]
     : null;
   const topDiscardImage = topDiscard
-    ? getImageSource(topDiscard.image)
+    ? getImageSource(topDiscard)
     : null;
 
   const inPlayingPhase = lobby.gamePhase === GAME_PHASES.PLAYING;
@@ -281,7 +282,7 @@ export default function GameBoard({
                     }
                   >
                     <Image
-                      source={getImageSource(lobby.lastMagic.image)}
+                      source={getImageSource(lobby.lastMagic)}
                       style={{
                         width: activeCardW,
                         height: activeCardH,

@@ -8,6 +8,8 @@ const {
   normalizeCardForDisplay,
   getCardOpenLog,
   isValidPlayableCard,
+  getMonsterPressLog,
+  getNativeImageSourceFromCard,
 } = require("../src/utils/cardDisplayCore.js");
 const {
   shouldShowCardModal,
@@ -90,6 +92,30 @@ assert(
   "game trap source",
   getGameCardModalSource("trap") === CARD_MODAL_SOURCES.GAME_TRAP
 );
+
+const unsafeMonster = normalizeCardForDisplay(
+  {
+    name: "Crash",
+    effect: "x",
+    type: "MONSTER",
+    image: { uri: "" },
+  },
+  { defaultType: "monster" }
+);
+assert(
+  "empty uri monster still opens modal",
+  shouldShowCardModal(true, unsafeMonster)
+);
+assert(
+  "game monster press never undefined image",
+  getNativeImageSourceFromCard({ name: "M", imageName: "drache" })?.uri != null
+);
+const gamePress = getMonsterPressLog(
+  { name: "Drache", imageName: "drache", effect: "Shot" },
+  { playerKey: "seat-1", defaultType: "monster" }
+);
+assert("game monster press log valid", gamePress.valid === true);
+assert("game monster press source type", gamePress.sourceType === "uri");
 
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed`);

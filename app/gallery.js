@@ -11,6 +11,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CardDetailModal from "../src/components/CardDetailModal";
 import ScreenBackButton from "../src/components/ScreenBackButton";
 import { fetchAllCards } from "../src/utils/cards";
+import { hiddenHeaderScreenOptions } from "../src/utils/stackScreenOptions";
+
+export const options = hiddenHeaderScreenOptions;
 
 export default function Gallery() {
   const router = useRouter();

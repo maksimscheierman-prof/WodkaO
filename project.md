@@ -26,6 +26,8 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 | [docs/layout_system.md](docs/layout_system.md) | Tisch-Slot-Layout (Deck, Monster, Avatare) |
 | [docs/layout_debug.md](docs/layout_debug.md) | Viewport/Squash-Debug (Cursor Browser) |
 | [docs/STATE_TRANSITIONS.md](docs/STATE_TRANSITIONS.md) | Session, Reconnect, Phasen → Routen |
+| [docs/PRIVATE_WEB_TESTING.md](docs/PRIVATE_WEB_TESTING.md) | Privater Web-Zugang (Access Gate, noindex) |
+| [docs/chatgpt-uebergabe.md](docs/chatgpt-uebergabe.md) | Kompakte Übergabe für externe KI-Sessions |
 
 **Alle Befehle vom Projektroot `Sauf Viel-Oh/`:**
 
@@ -37,7 +39,7 @@ npm run lint
 
 **Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web
 
-**APK-Status:** ⚠️ **Code release-ready** — Build-Ops offen: `eas login`, EAS Env `preview`, erster Build ([docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md))
+**APK-Status:** ✅ **EAS Build erfolgreich** — letzter Build `a762578b` (2026-06-14, Profil `preview`) — [APK](https://expo.dev/artifacts/eas/m92ZAHz4LWCY1pSOuRn-CeOOn-pNxruUKORXEeP0RoA.apk) · [Build-Log](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/a762578b-8315-49a9-912d-90aa7420fbd8) — Geräte-Smoke-Test noch offen ([docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md))
 
 **Online-Multiplayer:** ✅ **Implementiert** (Firestore + Lobby-Code) — siehe [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md)
 
@@ -57,22 +59,22 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ## Aktueller Stand
 
-*Stand: 2026-06-09 (Late Join + MVP-Dokumentation)*
+*Stand: 2026-06-18 (Monster-Modal Android, Web-Header)*
 
 ### MVP-Fortschritt (geschätzt)
 
 | Bereich | % | Stand |
 |---------|---|-------|
-| Infrastruktur | **85 %** | Expo, Lint, Tests, EAS-Config |
+| Infrastruktur | **90 %** | Expo, Lint, 8 Test-Scripts, EAS-Config, `.easignore` gefixt |
 | Lobby | **90 %** | Erstellen, Join, Ready, Start |
 | Multiplayer | **80 %** | Sync + Late Join (Code ✅, Geräte-Test offen) |
 | Gameplay | **85 %** | Phasen, Saufstapel, Voting |
-| Android Build | **40 %** | Config da, kein EAS-Build |
-| iOS / iPhone (Web) | **35 %** | Export ✅, `firebase.json` ✅; Deploy + Safari-Test offen |
+| Android Build | **75 %** | EAS `preview` APK ✅ (`a762578b`); Geräte-Smoke offen |
+| iOS / iPhone (Web) | **40 %** | Export ✅, `firebase.json` ✅, `TestAccessGate` ✅; Deploy + Safari-Test offen |
 | Firebase | **75 %** | Schema, Transaction-Join, Rules offen |
-| APK / Cross-Platform Testing | **10 %** | Kein Build; iPhone Safari noch nicht getestet |
+| APK / Cross-Platform Testing | **25 %** | APK gebaut; manueller Multi-Device-Test ausstehend |
 
-**Gesamt-MVP: ~72 %** — Details: [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md), Checkliste: [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md)
+**Gesamt-MVP: ~78 %** — Details: [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md), Checkliste: [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md)
 
 ### Neu umgesetzt (APK-Stabilität — 2026-06-13)
 
@@ -83,6 +85,20 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 - **Metro/AsyncStorage-Fix** — unvollständiges `node_modules` (fehlende `hooks.js`/`hooks.ts`); Fix: `node_modules` + `package-lock.json` löschen, `npm install`, `npx expo start -c`
 - **EAS Build-Fix (ErrorBoundary)** — `.easignore` hatte `components/` (ohne `/`) → schloss **`src/components/`** mit aus; Fix: `/components/`, `/hooks/`, `/constants/` (nur Expo-Template im Root). Datei `src/components/ErrorBoundary.js` + Import unverändert korrekt.
 - Doku: [docs/STATE_TRANSITIONS.md](docs/STATE_TRANSITIONS.md)
+
+### Neu umgesetzt (Web-Header / Vollbild — 2026-06-18)
+
+- **Kein weißer Browser-Balken** mit Routentitel („game“) auf Web
+- **Fix:** Explizite `Stack.Screen`-Einträge + `export const options` pro Route; `stackScreenOptions.js` (Web: `header: () => null`)
+- **`app/+html.tsx`:** `html/body/#root` margin 0, Hintergrund `#1a0033`, `theme-color`
+- **`app.json`:** `web.backgroundColor: "#1a0033"`
+
+### Neu umgesetzt (Monster-Modal Android-Crash — 2026-06-18)
+
+- **Ursache:** Unsichere Image-Sources (`null`/leere URI), unvollständige Normalisierung, Race mit `setViewingCard`
+- **Fix:** `cardDisplayCore.js` — URI-Validation, `getNativeImageSourceFromCard`, `getMonsterPressLog`; `Card.js` — `expo-image` + `onError` → `card_back.png`; `PlayerSeat`/`GameBoard` — nie `source={null}`; Viewing-Presence deferred + Guards
+- **Logs:** `[MONSTER PRESS]`, `[CARD MODAL OPEN]`, `[CARD IMAGE ERROR]`
+- Tests: `test:card-modal` (19), `test:card-display` (20)
 
 ### Neu umgesetzt (Navigation / Header — 2026-06-13)
 
@@ -98,7 +114,14 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 - **Ursache:** `ResponsiveCard` nutzte `transform: scale` → auf Android unsichtbare Karte (nur Overlay + Schließen)
 - **Fix:** Volle Kartengröße in ScrollView, keine Transform-Skalierung; `imageName`-Fallback; Logging `[CARD MODAL OPEN]`
 - Tests: `npm run test:card-modal` (15), `npm run test:card-display` (11)
-- **APK neu bauen** nach Deploy des Fixes
+- APK nach Fix neu gebaut: EAS `a762578b` (2026-06-14)
+
+### Neu umgesetzt (Spielername-UI — 2026-06-13)
+
+- **PlayerNameLabel** — eigene Komponente für Namen unter dem Avatar (`src/components/PlayerNameLabel.js`)
+- **Ursache:** Initiale auf Silhouette-Torso + voller Name darunter → Überlappung (z. B. „Sanfro“)
+- **Fix:** `showInitial={false}` in `PlayerSeat`; Name nur via `PlayerNameLabel`; Avatar-Block-Höhe angepasst (`playerSeatCore.js`)
+- Test: `npm run test:player-seat`
 
 ### Neu umgesetzt (Privater Web-Testzugang — 2026-06-13)
 
@@ -132,7 +155,7 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 - **Mehrfachklick-Schutz** via `useAsyncLock` (Lobby + Game + Modals)
 - **Karten-Viewing-Presence** — Denkblase bei Monster-/Fallenkarten (`viewingCard` in Firestore)
 - **Lobby-Ablauf:** Lobbys ohne Aktivität >2h → `status: "expired"`, Join blockiert — siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md)
-- **Lint:** 0 Errors, 9 Warnings (`react-hooks/exhaustive-deps`)
+- **Lint:** 0 Errors, 11 Warnings (`react-hooks/exhaustive-deps`)
 - **Mobile Web:** Responsive Modals, Safe Area, Höhen-Breakpoints (`responsive.js`, `ResponsiveCard.js`)
 
 ### Online-Multiplayer (Firebase) — MVP-Pflicht
@@ -158,7 +181,7 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 | Modal-Karten | `ResponsiveCard` skaliert 320×550 auf Viewport |
 | Reaktionsphase | Vertikal gestapelt unter 520px Breite |
 | HUD | Safe-Area-Insets, kompakter Lobby-Badge ab 360px |
-| VotePanel | Unten fixiert auf Mobile, Touch min. 44px |
+| VotePanel | ~~Entfernt aus UI~~ — Voting nur noch in `MagicCardModal` (Legacy-Datei noch im Repo) |
 | Hover | Keine Desktop-only Hover-Logik |
 
 **Viewports geprüft:** 360×640, 390×844, 414×896, Landscape Mobile, Tablet (DevTools)
@@ -228,7 +251,7 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 ### Avatar-System
 
 - `PlayerSilhouette` — stilisierte Person (Kopf, Schultern, Oberkörper)
-- Initiale auf der Brust; Name unterhalb des Avatars
+- Initiale optional (`showInitial`); Name via `PlayerNameLabel` unterhalb des Avatars
 - Position: äußere Ellipsen-Normale, tischzugewandte Kante berührt Rand
 - Zug-Highlight: grüner Glow nur am Avatar
 - **Backlog:** Selfie-Avatar (`players[].avatarUri`)
@@ -308,10 +331,10 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ### Priorität 1 — APK & Multiplayer
 
-- EAS Login + `EXPO_PUBLIC_*` in Environment `preview` setzen
-- `eas build --platform android --profile preview` ausführen
-- APK auf 2+ Geräten: Lobby → voller Spielablauf
-- Multiplayer-End-to-End im Browser verifizieren (2+ Clients)
+- ~~EAS Login + erster APK-Build~~ — ✅ Build `a762578b` (2026-06-14)
+- APK auf 2+ Geräten installieren: Smoke-Test ([docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md))
+- Multiplayer-End-to-End: Android APK + iPhone Safari (nach Firebase Hosting Deploy)
+- Late Join mit 3+ Clients manuell verifizieren
 
 ### Priorität 2 — Stabilisierung
 
@@ -349,9 +372,9 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 Sauf Viel-Oh/         # Projektroot (Git + Expo App)
   app/                # expo-router screens (index, lobby, game, gallery, settings)
   src/
-    components/       # Card, GameBoard, modals, VotePanel, …
-    hooks/            # useLobby, useGameLogic, useGameFirebase
-    utils/            # gameActions, gameLogic, cards
+    components/       # Card, GameBoard, CardDetailModal, GameExitButton, TestAccessGate, …
+    hooks/            # useLobby, useGameExit, useTestAccess, useAsyncLock, …
+    utils/            # gameActions, lateJoin, sessionResume, cardDisplay, testAccess, …
     config/           # timers, gamePhases
     styles/           # CardStyles, gameStyles
   assets/
@@ -359,6 +382,8 @@ Sauf Viel-Oh/         # Projektroot (Git + Expo App)
     images/cards/     # ~70 card PNGs
   docs/               # MVP, Firebase, Build, Spielablauf
   scripts/            # Tests, Lobby-Cleanup
+  public/             # robots.txt (Web noindex)
+  firebase.json       # Firebase Hosting (Web-MVP)
   .cursor/rules/      # Cursor agent rules
   firebaseConfig.js
   app.json
@@ -376,9 +401,13 @@ Sauf Viel-Oh/         # Projektroot (Git + Expo App)
 | Android | `npm run android` |
 | iOS | `npm run ios` |
 | Web | `npm run web` |
+| Web export | `npm run export:web` |
+| Firebase Hosting deploy | `npm run deploy:hosting` |
 | Lint | `npm run lint` |
+| Tests (Node) | `npm run test:lobby-lifecycle`, `test:late-join`, `test:card-display`, `test:card-modal`, `test:player-seat`, `test:session-resume`, `test:test-access`, `test:table-layout` |
+| Lobby cleanup | `npm run cleanup:lobbies` |
 
-Not configured: `typecheck`, `test`.
+Not configured: `typecheck`, aggregiertes `test` (einzelne `test:*`-Scripts vorhanden).
 
 ---
 
@@ -428,15 +457,19 @@ Do **not** commit if lint reports errors.
 | File | Issue |
 |------|-------|
 | `MagicCardModal.js` | 7× `react-hooks/exhaustive-deps` |
-| `useGameFirebase.js` | 2× `react-hooks/exhaustive-deps` (Legacy-Hook) |
+| `useGameFirebase.js` | 2× `react-hooks/exhaustive-deps` |
+| `app/game.js` | 1× `react-hooks/exhaustive-deps` |
+| `app/lobby.js` | 1× `react-hooks/exhaustive-deps` |
+| `ResponsiveCard.js` | 1× `no-unused-vars` (`CARD_BASE_HEIGHT`) |
 
-0 errors as of 2026-06-09. See `docs/testing.md`.
+0 errors as of 2026-06-14 (12 warnings). See `docs/testing.md`.
 
 ---
 
 ## Release
 
 - **Test-APK:** [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) — EAS + `buildType: apk`, `eas.json` im Repo
+- **Letzter erfolgreicher Build:** `a762578b` (2026-06-14) — [APK-Download](https://expo.dev/artifacts/eas/m92ZAHz4LWCY1pSOuRn-CeOOn-pNxruUKORXEeP0RoA.apk)
 - `android.package`: `com.wodkao.app` — konfiguriert
 - Version in `app.json` / `package.json`
 - Set `PACKAGE_NAME` / `BUNDLE_ID` before **store** upload (nicht nötig für sideload-APK)
@@ -510,7 +543,7 @@ Bild-URL via GitHub Pages: jerrichoz.github.io/DrinkingGameOh/assets/images/card
 - **Ja:** Trap wird entfernt; Monster als `effectsUsed` markiert
 - **Nein:** Aktivierender Spieler bekommt `shots + 1`
 - Ergebnis: `voteResult`, `resolvedEffect`, ACK-Phase (`resultAcks`)
-- UI: `MagicCardModal` + `VotePanel` (doppelt vorhanden)
+- UI: `MagicCardModal` (einzige Vote-/Ergebnis-UI; `VotePanel.js` Legacy, ungenutzt)
 - Auto-Fallback: Timer abgelaufen → automatisch „Ja" / „OK"
 
 ### Timer
@@ -592,8 +625,8 @@ Env-Variablen: `EXPO_PUBLIC_GOOGLE_SHEET_ID`, `EXPO_PUBLIC_GOOGLE_GID_*`, Fireba
 - `effectsUsed.monster` wird gesetzt, aber UI blockiert nicht erneute Aktivierung
 - Fallen der Gegner immer verdeckt (`card_back.png`) — kein Reveal-Mechanismus
 - Ungenutzter Legacy-Code: `useGameLogic`, `useGameFirebase`, `EffectButtons`, `MagicStack`, `PlayerBoard`
-- Doppelte Voting-UI (`VotePanel` + `MagicCardModal`)
-- `reactions`-Init bei Lobby-Create nur für Host, nicht alle Spieler
+- ~~Doppelte Voting-UI~~ — ✅ behoben (nur `MagicCardModal`)
+- ~~`reactions`-Init nur Host~~ — ✅ behoben (`startGame` + `handleShow` für alle)
 
 ### Bekannte Bugs
 
@@ -602,29 +635,21 @@ Env-Variablen: `EXPO_PUBLIC_GOOGLE_SHEET_ID`, `EXPO_PUBLIC_GOOGLE_GID_*`, Fireba
 | ~~Hoch~~ | ~~`handleCloseVoteResult` fehlt~~ | ✅ Behoben |
 | ~~Hoch~~ | ~~`formValues` undefined in `timers.js`~~ | ✅ Behoben |
 | ~~Mittel~~ | ~~`lastMagic.title` statt `.name`~~ | ✅ Behoben |
-| Mittel | `reactions` nur für Host initialisiert | Reaktionsphase evtl. falsch für Joiner |
-| Niedrig | Doppelte Vote/Ergebnis-UI in Modal + VotePanel | Verwirrende UX |
+| ~~Mittel~~ | ~~`reactions` nur für Host initialisiert~~ | ✅ Behoben 2026-06-13 |
+| ~~Niedrig~~ | ~~Doppelte Vote/Ergebnis-UI~~ | ✅ Behoben — nur `MagicCardModal` |
 | Niedrig | `useGameFirebase` filtert `type === "monster"` (lowercase) | Würde bei Nutzung keine Karten finden |
 | — | Kein Spielende | Endloses Spiel by design (noch kein Feature) |
 
-### Laufzeit-Check (2026-06-09)
+### Laufzeit-Check (2026-06-14)
 
 ```bash
-# node_modules vorhanden — npm install übersprungen
-npm run lint    # ❌ 2 Errors, 11 Warnings (siehe oben)
-npm start       # ✅ Expo Dev Server gestartet
+npm run lint           # ✅ 0 Errors, 12 Warnings
+npm run test:*         # ✅ 8 Node-Test-Scripts (siehe package.json)
+npx expo export --platform web     # ✅
+npx expo export --platform android # ✅
 ```
 
-**Expo Start — Meldungen:**
-
-| Typ | Meldung |
-|-----|---------|
-| Warnung | `--non-interactive` nicht unterstützt (CLI-Hinweis) |
-| Warnung | 16 Pakete nicht auf erwartete Expo-SDK-Versionen |
-| Erfolg | Metro Bundler läuft auf `http://localhost:8081` |
-| Fehler | Keine Bundle-/Compile-Fehler beim Start |
-
-*Hinweis: Kein Geräte-Test durchgeführt — Runtime-Fehler im Spiel (z. B. `handleCloseVoteResult`) würden erst bei Interaktion auf dem Gerät sichtbar.*
+**Offen:** Manueller Geräte-Smoke-Test mit APK `a762578b`; Firebase Hosting Deploy für iPhone-Web.
 
 ---
 
@@ -641,14 +666,17 @@ npm start       # ✅ Expo Dev Server gestartet
 | `formValues` undefined in `timers.js` | → `values` korrigiert |
 | `lastMagic.title` in `GameBoard.js` | → `lastMagic.name` (Kartendaten nutzen `name`) |
 
-### Verbleibende Warnings (9)
+### Verbleibende Warnings (12)
 
 | Datei | Art |
 |-------|-----|
 | `src/components/MagicCardModal.js` | 7× `react-hooks/exhaustive-deps` |
 | `src/hooks/useGameFirebase.js` | 2× `react-hooks/exhaustive-deps` |
+| `app/game.js` | 1× `react-hooks/exhaustive-deps` |
+| `app/lobby.js` | 1× `react-hooks/exhaustive-deps` |
+| `src/components/ResponsiveCard.js` | 1× `no-unused-vars` |
 
-`npm run lint` → **0 Errors, 9 Warnings** ✅
+`npm run lint` → **0 Errors, 12 Warnings** ✅
 
 ### Manueller Test
 
@@ -659,8 +687,8 @@ npm start       # ✅ Expo Dev Server gestartet
 | Risiko | Details |
 |--------|---------|
 | Online-only | Firestore + Google Sheets + GitHub Pages nötig |
-| `reactions`-Init | Bei Lobby-Create nur Host in `reactions` |
-| Doppelte Vote-UI | `VotePanel` + `MagicCardModal` parallel |
+| ~~`reactions`-Init~~ | ✅ Behoben — alle Spieler bei Start |
+| ~~Doppelte Vote-UI~~ | ✅ Behoben — nur `MagicCardModal` |
 | Kein Spielende | Endlosschleife by design |
 | Timer-Settings | Screen nicht verlinkt (Save jetzt funktional, aber unerreichbar) |
 | Expo-Paket-Versionen | 16 Pakete hinter SDK-Empfehlung |
@@ -681,7 +709,7 @@ npm start       # ✅ Expo Dev Server gestartet
 | Kompakte Lobby-Code-HUD-Box (`LobbyCodeBadge`, oben rechts) | ✅ ~2× größer, ganzer Block kopiert Code |
 | Rundenanzeige im Tisch | ✅ |
 | HUD blockiert Spielfeld nicht mehr | ✅ |
-| Join während `status: playing` | ❌ **Blockiert** in `joinLobby` |
+| Join während `status: playing` | ✅ **Late Join** via `joinLobbyTransaction` |
 | Sichtbare Kartenstapel auf dem Tisch | ✅ |
 | Saufstapel / Ablage (getrennte Slots) | ✅ (`StackPile.js`) |
 | Ziehen-Button (`GameActionBar`, unten) | ✅ 64–72 px Touch-Ziel, „Karte ziehen“, nur am Zug |
@@ -739,43 +767,31 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 | Priority | Item |
 |----------|------|
 | ~~Hoch~~ | ~~Fix lint errors~~ — ✅ erledigt (Stabilisierung Session) |
-| Hoch | **APK-Build + Multi-Device-Test** inkl. Late Join — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
+| Hoch | **Multi-Device-Smoke-Test** (APK `a762578b` + Web) inkl. Late Join — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
 | Hoch | Firestore Security Rules vor Freunde-Test verifizieren |
+| Hoch | Firebase Hosting Deploy für iPhone-Web-MVP — [docs/BUILD_WEB.md](docs/BUILD_WEB.md) |
 | Mittel | Local card data fallback (reduce Sheets dependency) |
-| Mittel | Add `typecheck` / `test` scripts when tests exist |
+| Mittel | Aggregiertes `npm test` + optional `typecheck` |
 | ~~Niedrig~~ | ~~Add `eas.json` for release builds~~ — ✅ erledigt |
-| Niedrig | EAS Login + erster APK-Build (`eas build --profile preview`) |
-| Niedrig | App slug/display name konsistent benennen |
+| ~~Niedrig~~ | ~~EAS Login + erster APK-Build~~ — ✅ `a762578b` (2026-06-14) |
+| Niedrig | App slug/display name konsistent benennen (`jahw3-app` vs. WodkaO) |
+| Niedrig | Legacy `VotePanel.js` aus Repo entfernen |
 
 ---
 
 ## Git-Status
 
-*Stand: 2026-06-13 (Projektroot-Migration)*
+*Stand: 2026-06-14*
 
 | Eigenschaft | Wert |
 |-------------|-------|
 | **Ziel-Repo** | https://github.com/maksimscheierman-prof/WodkaO |
 | **Repo-Pfad** | `Sauf Viel-Oh/.git` |
 | **Branch** | `feature/mvp-online-apk` |
-| **Struktur** | Ein Root — `jahw3-app/` aufgelöst (2026-06-13) |
+| **Letzter Commit** | `f59af81` — `feat: improve mobile navigation, remove native headers and update MVP documentation` |
+| **Working tree** | Sauber (nur lokale IDE-Settings `.vscode/settings.json` uncommitted) |
 
-### Offene Änderungen (Auszug)
-
-| Status | Bereich |
-|--------|---------|
-| Modified | `app/game.js`, `app/lobby.js`, `GameBoard.js`, `gameActions.js`, `CardModal.js`, … |
-| Untracked (neu) | `PlayerSeat.js`, `StackPile.js`, `ViewingCardBubble.js`, `tableLayout.js`, `useAsyncLock.js`, `LobbyCodeBadge.js`, `project.md`, `docs/` |
-
-### Erster Push vorbereitet?
-
-⚠️ **Noch nicht** — vor dem ersten Push zu `WodkaO`:
-
-1. ~~Lint-Fehler beheben~~ — ✅ erledigt
-2. Manueller MVP-Test, dann Commit (AI-Framework + Fixes)
-3. `git push -u origin main` (manuell nach Bestätigung)
-
-Push wurde in dieser Session **nicht** ausgeführt.
+Push-Status: Branch lokal; Push nur auf explizite Anweisung.
 
 ---
 

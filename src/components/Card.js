@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { Image, ImageBackground, Text, View } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import AutoFontSizeText from "../components/AutoFontSizeText";
 import { cardStyles } from "../styles/CardStyles";
 import {
   DEFAULT_CARD_IMAGE,
   normalizeCardImage,
 } from "../utils/cardDisplay";
+
+const CARD_BACK = require("../../assets/images/card_back.png");
 
 export default function Card({
   title = "Mystischer-Raum-Cocktail",
@@ -16,6 +20,8 @@ export default function Card({
   monsterType = "[Effekt]",
   image,
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
   const normalizedType =
     typeof type === "string" && type.trim().length > 0
       ? type.trim().toLowerCase()
@@ -38,12 +44,29 @@ export default function Card({
 
   const safeTitle = title || "Unbekannte Karte";
   const safeDescription = description || "Kein Effekttext verfügbar.";
-  const imageSource = normalizeCardImage(image ?? DEFAULT_CARD_IMAGE);
+  const primarySource = normalizeCardImage(image ?? DEFAULT_CARD_IMAGE);
+  const imageSource = imageFailed
+    ? CARD_BACK
+    : typeof primarySource === "number"
+      ? primarySource
+      : primarySource?.uri
+        ? { uri: primarySource.uri }
+        : DEFAULT_CARD_IMAGE;
 
   const starsRaw = parseInt(stars, 10);
   const safeStars = Number.isFinite(starsRaw)
     ? Math.min(Math.max(starsRaw, 0), 12)
     : 0;
+
+  const handleImageError = (err) => {
+    console.warn("[CARD IMAGE ERROR]", {
+      type: normalizedType,
+      title: safeTitle,
+      source: imageSource,
+      error: err?.nativeEvent?.error ?? err,
+    });
+    setImageFailed(true);
+  };
 
   return (
     <ImageBackground
@@ -74,7 +97,25 @@ export default function Card({
       {(normalizedType === "magic" || normalizedType === "trap") && (
         <Text style={cardStyles.topTypeLabel}>{currentLabel}</Text>
       )}
-      <Image source={imageSource} style={cardStyles.imageBox} resizeMode="cover" />
+
+      {typeof imageSource === "number" ? (
+        <Image
+          source={imageSource}
+          style={cardStyles.imageBox}
+          resizeMode="cover"
+          onError={handleImageError}
+        />
+      ) : (
+        <ExpoImage
+          source={imageSource}
+          style={cardStyles.imageBox}
+          contentFit="cover"
+          placeholder={CARD_BACK}
+          placeholderContentFit="cover"
+          transition={0}
+          onError={handleImageError}
+        />
+      )}
 
       {normalizedType === "monster" && (
         <Text style={cardStyles.typeLabel}>{currentLabel}</Text>

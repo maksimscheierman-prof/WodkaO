@@ -230,6 +230,16 @@ export const handleDiscard = async (lobbyRef, lobby) => {
  * Karte am Tisch ansehen (Presence / Denkblase)
  * -------------------------------- */
 export const setViewingCard = async (lobbyRef, lobby, playerName, type) => {
+  if (!lobbyRef || !lobby || !playerName || !type) {
+    console.warn("[VIEWING CARD SET] skipped — missing args", {
+      hasLobbyRef: !!lobbyRef,
+      hasLobby: !!lobby,
+      playerName,
+      type,
+    });
+    return;
+  }
+
   try {
     const updatedPlayers = (lobby.players || []).map((p) =>
       p.name === playerName
@@ -243,6 +253,15 @@ export const setViewingCard = async (lobbyRef, lobby, playerName, type) => {
 };
 
 export const clearViewingCard = async (lobbyRef, lobby, playerName) => {
+  if (!lobbyRef || !lobby || !playerName) {
+    console.warn("[VIEWING CARD CLEAR] skipped — missing args", {
+      hasLobbyRef: !!lobbyRef,
+      hasLobby: !!lobby,
+      playerName,
+    });
+    return;
+  }
+
   try {
     const updatedPlayers = (lobby.players || []).map((p) => {
       if (p.name !== playerName) return p;

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import {
   Alert,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -15,11 +16,11 @@ import {
 } from "../utils/cardDisplay";
 import { shouldShowCardModal } from "../utils/cardModalCore";
 import {
-  CARD_BASE_HEIGHT,
   CARD_BASE_WIDTH,
   getModalCardDimensions,
 } from "../utils/responsive";
 import Card from "./Card";
+import ErrorBoundary from "./ErrorBoundary";
 
 const closeBtnStyle = {
   marginTop: 16,
@@ -35,14 +36,50 @@ const closeBtnStyle = {
   elevation: 20,
 };
 
+function CardModalBody({ normalized, displayType, maxCardArea }) {
+  return (
+    <>
+      <View
+        collapsable={false}
+        style={{
+          flexShrink: 0,
+          maxHeight: maxCardArea,
+          width: CARD_BASE_WIDTH,
+          zIndex: 10,
+          elevation: 10,
+        }}
+      >
+        <Card
+          title={normalized.name}
+          description={normalized.effect}
+          image={normalized.image}
+          type={displayType}
+          atk={normalized.atk}
+          def={normalized.def}
+          stars={normalized.stars}
+          monsterType={normalized.monsterType}
+        />
+      </View>
+
+      <Text
+        style={{
+          color: "#d4c4e8",
+          fontSize: 13,
+          marginTop: 10,
+          textAlign: "center",
+        }}
+      >
+        {normalized.name} ·{" "}
+        {displayType === "unbekannt"
+          ? "Unbekannt"
+          : displayType.toUpperCase()}
+      </Text>
+    </>
+  );
+}
+
 /**
  * Unified card detail modal — gallery, monster, trap (Android-safe, no transform scale).
- * @param {{
- *   visible: boolean,
- *   card: object | null,
- *   source?: string,
- *   onClose: () => void,
- * }} props
  */
 export default function CardDetailModal({
   visible,
@@ -61,7 +98,9 @@ export default function CardDetailModal({
   const normalized = useMemo(() => {
     if (!card) return null;
     try {
-      return normalizeCardForDisplay(card);
+      const defaultType =
+        typeof card.type === "string" ? card.type.toLowerCase() : undefined;
+      return normalizeCardForDisplay(card, { defaultType });
     } catch (err) {
       console.error("[CARD MODAL NORMALIZE]", { source, err, card });
       return null;
@@ -101,7 +140,7 @@ export default function CardDetailModal({
       transparent
       animationType="fade"
       onRequestClose={onClose}
-      statusBarTranslucent
+      statusBarTranslucent={Platform.OS === "android"}
     >
       <View
         style={{
@@ -121,49 +160,15 @@ export default function CardDetailModal({
           }}
           bounces={false}
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={false}
         >
-          <View
-            collapsable={false}
-            style={{
-              flexShrink: 0,
-              maxHeight: maxCardArea,
-              width: CARD_BASE_WIDTH,
-              zIndex: 10,
-              elevation: 10,
-            }}
-          >
-            <ScrollView
-              nestedScrollEnabled
-              showsVerticalScrollIndicator
-              style={{ maxHeight: maxCardArea }}
-              contentContainerStyle={{ alignItems: "center" }}
-            >
-              <Card
-                title={normalized.name}
-                description={normalized.effect}
-                image={normalized.image}
-                type={displayType}
-                atk={normalized.atk}
-                def={normalized.def}
-                stars={normalized.stars}
-                monsterType={normalized.monsterType}
-              />
-            </ScrollView>
-          </View>
-
-          <Text
-            style={{
-              color: "#d4c4e8",
-              fontSize: 13,
-              marginTop: 10,
-              textAlign: "center",
-            }}
-          >
-            {normalized.name} ·{" "}
-            {displayType === "unbekannt"
-              ? "Unbekannt"
-              : displayType.toUpperCase()}
-          </Text>
+          <ErrorBoundary context={{ source, cardName: normalized.name }}>
+            <CardModalBody
+              normalized={normalized}
+              displayType={displayType}
+              maxCardArea={maxCardArea}
+            />
+          </ErrorBoundary>
 
           <TouchableOpacity onPress={onClose} style={closeBtnStyle}>
             <Text style={{ fontWeight: "bold", fontSize: 15, color: "#2E1F12" }}>

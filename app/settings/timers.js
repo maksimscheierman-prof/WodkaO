@@ -4,6 +4,9 @@ import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "reac
 import { db } from "../../firebaseConfig";
 import { DEFAULT_TIMERS, sanitizeTimers } from "../../src/config/timers";
 import { useAsyncLock } from "../../src/hooks/useAsyncLock";
+import { hiddenHeaderScreenOptions } from "../../src/utils/stackScreenOptions";
+
+export const options = hiddenHeaderScreenOptions;
 
 export default function TimerSettings({ route }) {
   const { lobbyId } = route.params;

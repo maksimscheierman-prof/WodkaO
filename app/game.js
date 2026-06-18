@@ -52,22 +52,28 @@ import {
 } from "../src/utils/lobbyLifecycle";
 import {
   getCardOpenLog,
+  getMonsterPressLog,
   isValidPlayableCard,
   normalizeCardForDisplay,
 } from "../src/utils/cardDisplay";
 import { clearSession, saveSession } from "../src/utils/sessionStorage";
+import { hiddenHeaderScreenOptions } from "../src/utils/stackScreenOptions";
 
-
+export const options = hiddenHeaderScreenOptions;
 
 export default function Game() {
 
-  const { lobbyId, playerName } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const lobbyId = Array.isArray(params.lobbyId) ? params.lobbyId[0] : params.lobbyId;
+  const playerName = Array.isArray(params.playerName)
+    ? params.playerName[0]
+    : params.playerName;
 
   const router = useRouter();
 
   const lobby = useLobby(lobbyId);
 
-  const lobbyRef = doc(db, "lobbies", lobbyId);
+  const lobbyRef = doc(db, "lobbies", String(lobbyId || ""));
 
   const [selectedCard, setSelectedCard] = useState(null);
   const [joinToast, setJoinToast] = useState(null);
@@ -279,14 +285,25 @@ export default function Game() {
 
   const handleSelectCard = useCallback(
     (card, ownerName) => {
-      if (!isValidPlayableCard(card)) {
+      const defaultType =
+        typeof card?.type === "string" ? card.type.toLowerCase() : "monster";
+      const pressLog = getMonsterPressLog(card, {
+        defaultType,
+        playerKey: playerName,
+        playerName: ownerName,
+      });
+
+      if (defaultType === "monster") {
+        console.log("[MONSTER PRESS]", pressLog);
+      }
+
+      if (!isValidPlayableCard(card, { defaultType })) {
         console.error("[CARD SELECT] Invalid card", {
           route: "game",
           lobbyId,
           playerName,
           ownerName,
-          cardType: card?.type,
-          cardName: card?.name || card?.title,
+          ...pressLog,
         });
         Alert.alert(
           "Karte nicht verfügbar",
@@ -295,8 +312,18 @@ export default function Game() {
         return;
       }
 
-      const normalized = normalizeCardForDisplay(card);
+      const normalized = normalizeCardForDisplay(card, { defaultType });
+      if (!normalized) {
+        console.error("[CARD SELECT] Normalize failed", pressLog);
+        Alert.alert(
+          "Karte nicht verfügbar",
+          "Diese Karte konnte nicht angezeigt werden."
+        );
+        return;
+      }
+
       console.log("[CARD SELECT]", getCardOpenLog(card, "game"));
+      console.log("[CARD MODAL OPEN]", getCardOpenLog(normalized, "gameModal"));
       setSelectedCard(normalized);
 
       const type =
@@ -306,11 +333,14 @@ export default function Game() {
       if (
         ownerName === playerName &&
         (type === "monster" || type === "trap") &&
-        lobby
+        lobby &&
+        lobbyId
       ) {
-        actions
-          .setViewingCard(lobbyRef, lobby, playerName, type)
-          .catch((err) => console.error("[VIEWING CARD]", err));
+        queueMicrotask(() => {
+          actions
+            .setViewingCard(lobbyRef, lobby, playerName, type)
+            .catch((err) => console.error("[VIEWING CARD]", err));
+        });
       }
     },
     [lobby, lobbyId, lobbyRef, playerName]

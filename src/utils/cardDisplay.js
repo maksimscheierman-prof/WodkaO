@@ -5,6 +5,9 @@ export {
   normalizeCardForDisplay,
   isValidPlayableCard,
   getImageSourceForNative,
+  getNativeImageSourceFromCard,
+  getMonsterPressLog,
   getCardOpenLog,
   resolveCardImageField,
+  describeImageSource,
 } from "./cardDisplayCore.js";
