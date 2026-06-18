@@ -1,7 +1,8 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { DEFAULT_CARD_IMAGE } from "../utils/cardDisplay";
 import { recordCardModalDebug } from "../utils/cardModalDebug";
+import SafeText from "./SafeText";
 
 const CARD_BACK = require("../../assets/images/card_back.png");
 
@@ -62,7 +63,8 @@ export default function AndroidSafeCardDetail({ normalized, displayType }) {
         }
       />
 
-      <Text
+      <SafeText
+        component="AndroidSafeCardDetail.title"
         style={{
           color: "#ffe08a",
           fontSize: 18,
@@ -73,13 +75,17 @@ export default function AndroidSafeCardDetail({ normalized, displayType }) {
         numberOfLines={2}
       >
         {normalized?.name || "Unbekannte Karte"}
-      </Text>
+      </SafeText>
 
-      <Text style={{ color: "#ccc", fontSize: 12, marginTop: 4, textAlign: "center" }}>
+      <SafeText
+        component="AndroidSafeCardDetail.type"
+        style={{ color: "#ccc", fontSize: 12, marginTop: 4, textAlign: "center" }}
+      >
         {displayType === "unbekannt" ? "UNBEKANNT" : displayType.toUpperCase()}
-      </Text>
+      </SafeText>
 
-      <Text
+      <SafeText
+        component="AndroidSafeCardDetail.effect"
         style={{
           color: "#e8dff0",
           fontSize: 14,
@@ -88,12 +94,15 @@ export default function AndroidSafeCardDetail({ normalized, displayType }) {
         }}
       >
         {normalized?.effect || "Kein Effekttext verfügbar."}
-      </Text>
+      </SafeText>
 
       {displayType === "monster" ? (
-        <Text style={{ color: "#b8d4ff", marginTop: 10, fontSize: 13 }}>
+        <SafeText
+          component="AndroidSafeCardDetail.stats"
+          style={{ color: "#b8d4ff", marginTop: 10, fontSize: 13 }}
+        >
           ATK/{Number(normalized?.atk) || 0} · DEF/{Number(normalized?.def) || 0}
-        </Text>
+        </SafeText>
       ) : null}
     </View>
   );

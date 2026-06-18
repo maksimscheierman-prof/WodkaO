@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Image, ImageBackground, Text, View } from "react-native";
+import { Image, ImageBackground, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import AutoFontSizeText from "../components/AutoFontSizeText";
+import SafeText from "../components/SafeText";
 import { cardStyles } from "../styles/CardStyles";
 import {
   DEFAULT_CARD_IMAGE,
@@ -85,6 +86,7 @@ export default function Card({
     >
       <View style={cardStyles.titleWrap}>
         <AutoFontSizeText
+          component="Card.title"
           style={cardStyles.cardTitle}
           minFontSize={14}
           maxFontSize={20}
@@ -103,7 +105,9 @@ export default function Card({
           />
         ))}
       {(normalizedType === "magic" || normalizedType === "trap") && (
-        <Text style={cardStyles.topTypeLabel}>{currentLabel}</Text>
+        <SafeText component="Card.topTypeLabel" style={cardStyles.topTypeLabel}>
+          {currentLabel}
+        </SafeText>
       )}
 
       {typeof imageSource === "number" ? (
@@ -126,15 +130,23 @@ export default function Card({
       )}
 
       {normalizedType === "monster" && (
-        <Text style={cardStyles.typeLabel}>{currentLabel}</Text>
+        <SafeText component="Card.monsterType" style={cardStyles.typeLabel}>
+          {currentLabel}
+        </SafeText>
       )}
 
-      <Text style={cardStyles.monsterDescription}>{safeDescription}</Text>
+      <SafeText component="Card.description" style={cardStyles.monsterDescription}>
+        {safeDescription}
+      </SafeText>
 
       {normalizedType === "monster" && (
         <>
-          <Text style={cardStyles.monsterAtk}>ATK/{Number(atk) || 0}</Text>
-          <Text style={cardStyles.monsterDef}>DEF/{Number(def) || 0}</Text>
+          <SafeText component="Card.atk" style={cardStyles.monsterAtk}>
+            ATK/{Number(atk) || 0}
+          </SafeText>
+          <SafeText component="Card.def" style={cardStyles.monsterDef}>
+            DEF/{Number(def) || 0}
+          </SafeText>
         </>
       )}
     </ImageBackground>

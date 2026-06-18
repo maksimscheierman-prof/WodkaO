@@ -95,11 +95,10 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ### Neu umgesetzt (Monster-Modal Android-Crash — 2026-06-18)
 
-- **Symptom:** Preview-APK crasht beim Antippen des Monsters auf dem Spielfeld
-- **Debug-Pfad:** [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md) — logcat, `EXPO_PUBLIC_CARD_MODAL_DEBUG`, Overlay auf Game-Screen
-- **Hypothese (logcat ausstehend):** Board-Thumbnail (`Image`) OK; volles `Card`-Template im Modal (`ImageBackground` + nested `expo-image`) → nativer Android-Crash
-- **Fix:** `AndroidSafeCardDetail` standardmäßig auf Android im `CardDetailModal`; volles `Card` nur mit `EXPO_PUBLIC_CARD_MODAL_SAFE_ANDROID=0` (Repro)
-- **Instrumentierung:** `cardModalDebug.js`, Phasen-Logs `board_press` → `modal_native_on_show`, global `ErrorUtils` handler
+- **Ursache (logcat bestätigt):** `java.lang.IllegalArgumentException: FontSize should be a positive value. Current value: 0` — **nicht** Bild/Card-Daten. Crash nach `[CARD MODAL OPEN]`.
+- **Schuldige Komponente:** `Card.js` → `<Text style={cardStyles.typeLabel}>` für Monster-Typ; `CardStyles.js` hatte `typeLabel.fontSize: 0` (visuell ausgeblendet). Android **Fabric** wirft bei `fontSize: 0` nativ — besonders kritisch mit `fontWeight`/`letterSpacing`.
+- **Fix:** `typeLabel` auf `fontSize: 12` + `opacity: 0`; Hilfsfunktionen `safeFontSize` / `SafeText` für alle dynamischen Text-Metriken im Modal-Pfad; `[TEXT SIZE]`-Logs in Dev/Debug-Builds.
+- **Debug-Pfad:** [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md) — logcat, Overlay, `AndroidSafeCardDetail` als optionaler Fallback (`EXPO_PUBLIC_CARD_MODAL_SAFE_ANDROID`)
 - **Sentry:** nicht konfiguriert
 
 ### Neu umgesetzt (Navigation / Header — 2026-06-13)

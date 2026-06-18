@@ -45,15 +45,17 @@ export const cardStyles = StyleSheet.create({
     zIndex: 99,
   },
 
-  // Typ-Leiste (unter Bild, vor Effekt) ausgeblendet
+  // Typ-Leiste (unter Bild, vor Effekt) — visuell ausgeblendet (opacity), nie fontSize: 0 (Android Fabric crash)
   typeLabel: {
     position: "absolute",
     top: 410,
     left: 25,
     right: 20,
-    fontSize: 0,
+    fontSize: 12,
     fontWeight: "bold",
     textAlign: "left",
+    opacity: 0,
+    pointerEvents: "none",
   },
 
   // neues Label für Magic/Trap oben

@@ -4,7 +4,6 @@ import {
   Modal,
   Platform,
   ScrollView,
-  Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -24,6 +23,7 @@ import { getModalCardDimensions } from "../utils/responsive";
 import AndroidSafeCardDetail from "./AndroidSafeCardDetail";
 import Card from "./Card";
 import ErrorBoundary from "./ErrorBoundary";
+import SafeText from "./SafeText";
 
 const closeBtnStyle = {
   marginTop: 16,
@@ -77,7 +77,8 @@ function CardModalBody({ normalized, displayType, maxCardArea, renderMode }) {
         />
       </View>
 
-      <Text
+      <SafeText
+        component="CardDetailModal.caption"
         style={{
           color: "#d4c4e8",
           fontSize: 13,
@@ -89,7 +90,7 @@ function CardModalBody({ normalized, displayType, maxCardArea, renderMode }) {
         {displayType === "unbekannt"
           ? "Unbekannt"
           : displayType.toUpperCase()}
-      </Text>
+      </SafeText>
     </>
   );
 }
@@ -221,9 +222,12 @@ export default function CardDetailModal({
           </ErrorBoundary>
 
           <TouchableOpacity onPress={onClose} style={closeBtnStyle}>
-            <Text style={{ fontWeight: "bold", fontSize: 15, color: "#2E1F12" }}>
+            <SafeText
+              component="CardDetailModal.close"
+              style={{ fontWeight: "bold", fontSize: 15, color: "#2E1F12" }}
+            >
               Schließen
-            </Text>
+            </SafeText>
           </TouchableOpacity>
         </ScrollView>
       </View>
