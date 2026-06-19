@@ -4,7 +4,7 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 **Git-Repo:** [maksimscheierman-prof/WodkaO](https://github.com/maksimscheierman-prof/WodkaO)  
 **Projektroot:** `Sauf Viel-Oh/` — Git, App-Code und npm-Befehle liegen hier  
-**Expo:** `name` **WodkaO** · `slug` **wodkao** · `scheme` **wodkao** (`app.json`)  
+**Expo:** `name` **WodkaO** · `slug` **jahw3-app** (EAS-Projekt-ID unveränderlich) · `scheme` **wodkao** (`app.json`)  
 **npm package name:** `wodkao` (`package.json`)  
 **Android/iOS package:** `com.wodkao.app` (unverändert)  
 **Display name (UI):** Vod-ka-Oh!  
@@ -18,7 +18,7 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 | Feld | Wert |
 |------|------|
 | `expo.name` | **WodkaO** (Android Launcher / Home-Screen) |
-| `expo.slug` | **wodkao** |
+| `expo.slug` | **jahw3-app** (EAS-Projekt-Slug, nicht umbenennbar — siehe [expo.fyi/eas-project-id](https://expo.fyi/eas-project-id)) |
 | `expo.scheme` | **wodkao** |
 | npm `name` | **wodkao** |
 | `android.package` / `ios.bundleIdentifier` | **com.wodkao.app** (unverändert) |
@@ -152,7 +152,7 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 - **Mobile Reaktions-UX:** Magic kompakt, Monster/Falle/Done ohne Scrollen
 - **Tests ergänzt:** `test:card-frame`, `test:reaction-layout`, `test:effects-used`, erweiterte Card-Modal-Tests
 - **Rebranding-Assets** exportiert (`assets/icon.png`, Splash, Adaptive Icon)
-- **Expo slug:** `wodkao` (kein `jahw3-app` mehr in `app.json`)
+- **Expo slug:** `jahw3-app` (EAS-Projekt-ID; Display-Name **WodkaO**, Deep-Link-Scheme **wodkao**)
 
 **Aktueller Fokus:** Freunde-Test mit Preview-APK (Android) + iPhone via Web/Safari
 
