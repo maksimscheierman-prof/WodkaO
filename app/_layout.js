@@ -17,6 +17,8 @@ const screenEntries = [
   "game",
   "gallery",
   "settings/timers",
+  "settings/commentator",
+  "session-summary",
 ];
 
 export default function Layout() {

@@ -1,9 +1,17 @@
 import { updateDoc } from "firebase/firestore";
 import { applyApprovedEffectUsage, canActivateMonsterEffect } from "./effectsUsedCore";
+import { normalizeCardForTemplate } from "./cardDisplayCore";
 import { GAME_PHASES } from "../config/gamePhases";
 import { EMPTY_TIMER_STARTS } from "../config/timers";
 import { drawTopCard } from "./gameLogic";
 import { withActivity } from "./lobbyLifecycle";
+import {
+  applyTrapChoiceUpdate,
+  applyTrapDrawNoChoice,
+  buildPendingTrapChoice,
+  canResolveTrapChoice,
+  shouldStartTrapChoice,
+} from "./trapChoiceCore";
 
 const PHASE_RESET = {
   activeEffect: null,
@@ -119,6 +127,7 @@ export const handleDrawMonster = async (lobbyRef, lobby, playerName) => {
 export const handleDraw = async (lobbyRef, lobby, setSelectedCard) => {
   if (lobby?.gamePhase !== GAME_PHASES.PLAYING) return;
   if (lobby?.lastMagic) return;
+  if (lobby?.pendingTrapChoice) return;
 
   try {
     const { card, deck } = drawTopCard(lobby.saufDeck);
@@ -135,40 +144,69 @@ export const handleDraw = async (lobbyRef, lobby, setSelectedCard) => {
           saufDeck: deck,
           lastMagic: card,
           showMagic: false,
+          pendingTrapChoice: null,
           ...PHASE_RESET,
         })
       );
-      setSelectedCard({ ...card, type: "MAGIC" });
+      setSelectedCard(normalizeCardForTemplate({ ...card, type: "MAGIC" }, "magic"));
       return;
     }
 
     if (type === "TRAP" && activePlayer) {
-      const discardPile = [...(lobby.discardPile || [])];
-      if (activePlayer.trap) discardPile.push(activePlayer.trap);
+      if (shouldStartTrapChoice(activePlayer, card)) {
+        await updateDoc(
+          lobbyRef,
+          withActivity({
+            saufDeck: deck,
+            pendingTrapChoice: buildPendingTrapChoice(
+              activePlayer.name,
+              activePlayer.trap,
+              card
+            ),
+            lastMagic: null,
+            showMagic: false,
+            ...PHASE_RESET,
+          })
+        );
+        return;
+      }
 
-      const updatedPlayers = (lobby.players || []).map((p) =>
-        p.name === activePlayer.name ? { ...p, trap: card } : p
-      );
-      const nextTurn = (activeIdx + 1) % (lobby.players?.length || 1);
-      const round =
-        nextTurn === 0 ? (lobby.round || 1) + 1 : lobby.round || 1;
+      const trapUpdates = applyTrapDrawNoChoice(lobby, activeIdx, card);
+      if (!trapUpdates) return;
 
       await updateDoc(
         lobbyRef,
         withActivity({
           saufDeck: deck,
-          discardPile,
-          players: updatedPlayers,
-          turn: nextTurn,
-          round,
-          lastMagic: null,
-          showMagic: false,
+          ...trapUpdates,
           ...PHASE_RESET,
         })
       );
     }
   } catch (err) {
     console.error("[DRAW ERROR]", err);
+  }
+};
+
+/* --------------------------------
+ * Fallen-Auswahl (zweite Falle gezogen)
+ * -------------------------------- */
+export const handleResolveTrapChoice = async (
+  lobbyRef,
+  lobby,
+  playerName,
+  choice
+) => {
+  if (!canResolveTrapChoice(lobby, playerName)) return;
+
+  const updates = applyTrapChoiceUpdate(lobby, choice);
+  if (!updates) return;
+
+  try {
+    await updateDoc(lobbyRef, withActivity({ ...updates, ...PHASE_RESET }));
+    console.log(`[TRAP CHOICE] ${playerName} → ${choice}`);
+  } catch (err) {
+    console.error("[TRAP CHOICE ERROR]", err);
   }
 };
 

@@ -24,6 +24,7 @@ import GameSetupPanel from "../src/components/GameSetupPanel";
 import LobbyCodeBadge from "../src/components/LobbyCodeBadge";
 
 import MagicCardModal from "../src/components/MagicCardModal";
+import TrapChoiceModal from "../src/components/TrapChoiceModal";
 
 import { useAsyncLock } from "../src/hooks/useAsyncLock";
 import { confirmLeaveGame, useGameExitGuard } from "../src/hooks/useGameExit";
@@ -55,7 +56,7 @@ import {
   getCardOpenLog,
   getMonsterPressLog,
   isValidPlayableCard,
-  normalizeCardForDisplay,
+  normalizeCardForTemplate,
 } from "../src/utils/cardDisplay";
 import {
   recordCardModalDebug,
@@ -63,6 +64,12 @@ import {
 } from "../src/utils/cardModalDebug";
 import { clearSession, saveSession } from "../src/utils/sessionStorage";
 import { hiddenHeaderScreenOptions } from "../src/utils/stackScreenOptions";
+import { isTrapChoiceForPlayer } from "../src/utils/trapChoice";
+import { COMMENTATOR_GAME_END_LEAVE_MS } from "../src/features/commentator/commentatorConfig";
+import CommentatorBubble from "../src/features/commentator/CommentatorBubble";
+import { hasSessionActivity } from "../src/features/commentator/commentatorAwards";
+import { saveCommentatorSessionReport } from "../src/features/commentator/commentatorSessionReportStorage";
+import { useCommentator } from "../src/features/commentator/useCommentator";
 
 export const options = hiddenHeaderScreenOptions;
 
@@ -79,6 +86,8 @@ export default function Game() {
   const lobby = useLobby(lobbyId);
 
   const lobbyRef = doc(db, "lobbies", String(lobbyId || ""));
+
+  const { commentary, exportSessionReport, announceGameEnded } = useCommentator(lobby, lobbyId);
 
   const [selectedCard, setSelectedCard] = useState(null);
   const [joinToast, setJoinToast] = useState(null);
@@ -109,10 +118,40 @@ export default function Game() {
         }
       }
 
+      const report = exportSessionReport?.();
+      const showSessionSummary =
+        report?.settings?.commentatorEnabled &&
+        hasSessionActivity(report.sessionStats);
+
+      if (report?.settings?.commentatorEnabled) {
+        await announceGameEnded?.(report?.sessionStats, {
+          commentatorPersonality:
+            lobby?.commentatorPersonality ?? report?.commentatorPersonality,
+          players: (lobby?.players ?? report?.players ?? [])
+            .filter((p) => p?.id && p?.name)
+            .map((p) => ({ id: p.id, name: p.name })),
+        });
+        await new Promise((resolve) => setTimeout(resolve, COMMENTATOR_GAME_END_LEAVE_MS));
+      }
+
       await clearSession();
+      if (showSessionSummary) {
+        await saveCommentatorSessionReport({
+          sessionStats: report.sessionStats,
+          settings: report.settings,
+          commentatorPersonality: report.commentatorPersonality,
+          players: report.players,
+          playerName,
+          lobbyId,
+          savedAt: Date.now(),
+        });
+        router.replace({ pathname: "/session-summary", params: { playerName } });
+        return;
+      }
+
       router.replace({ pathname: "/", params: { playerName } });
     });
-  }, [actionLock, lobby, lobbyRef, playerName, router]);
+  }, [actionLock, announceGameEnded, exportSessionReport, lobby, lobbyId, lobbyRef, playerName, router]);
 
   const requestLeaveGame = useCallback(() => {
     confirmLeaveGame(performLeaveGame);
@@ -280,6 +319,12 @@ export default function Game() {
 
   };
 
+  const onResolveTrapChoice = (choice) => {
+    runAction(async () => {
+      await actions.handleResolveTrapChoice(lobbyRef, lobby, playerName, choice);
+    });
+  };
+
 
 
   const isMagicSelected =
@@ -325,7 +370,7 @@ export default function Game() {
           return;
         }
 
-        const normalized = normalizeCardForDisplay(card, { defaultType });
+        const normalized = normalizeCardForTemplate(card, defaultType);
         if (!normalized) {
           recordCardModalDebug("game_select_normalize_failed", pressLog);
           console.error("[CARD SELECT] Normalize failed", pressLog);
@@ -487,9 +532,35 @@ export default function Game() {
 
   const playingPhase = isPlayingPhase(lobby.gamePhase, lobby);
 
+  const pendingTrapChoice = lobby.pendingTrapChoice ?? null;
+  const isTrapChooser =
+    pendingTrapChoice &&
+    isTrapChoiceForPlayer(pendingTrapChoice, playerName);
+
   const boardTopInset = getBoardTopInset(screenHeight, insets.top);
 
+  const overlayActive =
+    !!selectedCard ||
+    !!pendingTrapChoice ||
+    !!(playingPhase && lobby.votingOpen) ||
+    !!(playingPhase && lobby.voteResult) ||
+    !!(
+      playingPhase &&
+      lobby.lastMagic &&
+      (lobby.showMagic || isMagicSelected)
+    );
 
+  const actionBarLikelyVisible =
+    playingPhase &&
+    isMyTurn &&
+    !lobby.votingOpen &&
+    !lobby.activeEffect &&
+    !lobby.voteResult &&
+    !pendingTrapChoice;
+
+  const commentatorBottomOffset = actionBarLikelyVisible
+    ? Math.max(12, insets.bottom + 8) + 76
+    : Math.max(12, insets.bottom + 8);
 
   return (
 
@@ -591,6 +662,19 @@ export default function Game() {
                   {joinToast}
                 </Text>
               ) : null}
+
+              {pendingTrapChoice && !isTrapChooser ? (
+                <Text
+                  style={{
+                    color: "#d4c4a8",
+                    fontSize: compact ? 11 : 12,
+                    marginTop: 4,
+                  }}
+                  numberOfLines={2}
+                >
+                  ⏳ {pendingTrapChoice.playerKey} wählt eine Falle…
+                </Text>
+              ) : null}
             </View>
           </View>
 
@@ -609,6 +693,8 @@ export default function Game() {
               onRollDice={onRollDice}
 
               onDrawMonster={onDrawMonster}
+
+              onSelectMonster={handleSelectCard}
 
               actionDisabled={actionLock.isLocked}
 
@@ -697,6 +783,24 @@ export default function Game() {
         />
 
         )}
+
+        {playingPhase && pendingTrapChoice && (
+          <TrapChoiceModal
+            pending={pendingTrapChoice}
+            isChooser={!!isTrapChooser}
+            onChoose={onResolveTrapChoice}
+            onTimeout={onResolveTrapChoice}
+            actionDisabled={actionLock.isLocked}
+          />
+        )}
+
+        <CommentatorBubble
+          text={commentary}
+          compact={compact}
+          overlayActive={overlayActive}
+          bottomOffset={commentatorBottomOffset}
+          topOffset={hudTop + 52}
+        />
 
       </LinearGradient>
 

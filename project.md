@@ -71,6 +71,7 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 | [docs/BUILD_WEB.md](docs/BUILD_WEB.md) | **iPhone-MVP** — öffentliches Web-Hosting (Firebase) |
 | [docs/BUILD_IOS.md](docs/BUILD_IOS.md) | TestFlight (optional, nicht erster MVP) |
 | [docs/SPIELABLAUF.md](docs/SPIELABLAUF.md) | Spielphasen & Regeln |
+| [docs/KOMMENTATOR.md](docs/KOMMENTATOR.md) | AI-Kommentator — Phasenplan, Umsetzungsstatus, Phase 8 Spec |
 | [docs/layout_system.md](docs/layout_system.md) | Tisch-Slot-Layout (Deck, Monster, Avatare) |
 | [docs/layout_debug.md](docs/layout_debug.md) | Viewport/Squash-Debug (Cursor Browser) |
 | [docs/STATE_TRANSITIONS.md](docs/STATE_TRANSITIONS.md) | Session, Reconnect, Phasen → Routen |
@@ -81,13 +82,14 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 ```bash
 npm install
-npm start          # bzw. npm run web / android / ios
+npm start                    # Expo Go / Standard
+npx expo start --dev-client  # Development Client (empfohlen für Android-Dev)
 npm run lint
 ```
 
-**Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web
+**Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web · **expo-dev-client**
 
-**APK-Status:** 🔄 **Neuer Preview-Build** für Freunde-Test (Profil `preview`, APK) — vorheriger stabiler Build `1907b4bf` (fontSize-0-Fix)
+**APK-Status:** ✅ **Preview-Build für Freunde-Test** — Build `3bb4e88f` (Commit `19f9b5d`, Profil `preview`, APK) — [Install / Download](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/3bb4e88f-1e3f-4ee6-a8fb-5563990afced)
 
 **Schnellster Test:** **Android:** neue Preview-APK (EAS `preview`) — **iPhone:** Web/Safari ([BUILD_WEB.md](docs/BUILD_WEB.md), Deploy offen)
 
@@ -105,20 +107,137 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ## Aktueller Stand
 
-*Stand: 2026-06-09 (Preview-APK Freunde-Test, Card-Modal stabil)*
+*Stand: 2026-06-19 (Dev Client, Health Check, Preview-APK bereit)*
+
+## Status
+
+**Projekt stabil.** Development Client funktioniert. Preview-APK (`3bb4e88f`) für den ersten echten Freunde-MVP-Test bereit. Vorbereitung: Android sideload + iPhone Safari (nach Web-Deploy).
+
+## Development Workflow
+
+| Thema | Stand |
+|-------|-------|
+| **Expo Development Client** | Eingerichtet (`expo-dev-client` in `package.json`) |
+| **adb** | Im PATH (Android-Gerät per USB/WLAN debuggen) |
+| **Start (Dev)** | `npx expo start --dev-client` |
+| **Reload** | Fast Refresh / Metro Reload — kein ständiger APK-Build nötig |
+| **Freunde-Test** | Separater EAS **`preview`**-Build (APK), nicht Dev Client |
+
+## Card System
+
+| Komponente | Verhalten |
+|------------|-----------|
+| **CardDetailModal** | Echte Karten-Templates via `TemplateCardRenderer` → `ScaledTemplateCard` → `Card` |
+| **Voting / Reaktion** | Derselbe Template-Renderer (`VotingPhasePanel`, `MagicReactionPanel`) |
+| **Android-Safe-Card** | Nur opt-in: `EXPO_PUBLIC_CARD_MODAL_SAFE_ANDROID=1` → `AndroidSafeCardDetail` |
+| **Debug-Overlay** | Nur opt-in: `EXPO_PUBLIC_CARD_MODAL_DEBUG=1` (Standard: aus) |
+
+## Templates
+
+**Pfad:** `assets/images/templates/`
+
+| Datei | Verwendung |
+|-------|------------|
+| `monster_frame.png` | Monster-Karten |
+| `magic_frame.png` | Magie-Karten |
+| `trap_frame.png` | Fallen-Karten |
+
+**Mapping** (`src/utils/cardFrameCore.js` → `resolveCardFrameType`):
+
+| Typ | Frame |
+|-----|-------|
+| MONSTER | `monster_frame` |
+| MAGIC / SPELL | `magic_frame` |
+| TRAP | `trap_frame` |
+| Unbekannt | Fallback → `monster_frame` |
+
+## Android Crash Fix
+
+**Ursache:** `fontSize: 0` / unsichere `letterSpacing` / `lineHeight` unter React Native **Fabric** (logcat: `FontSize should be a positive value. Current value: 0`) — nicht Bild- oder Kartendaten.
+
+**Fix:**
+
+- `safeFontSize()` / `safeLineHeight()` / `safeLetterSpacing()` (`safeTextMetricsCore.js`)
+- `AutoFontSizeText`, `SafeText` im Modal-Pfad
+- Kein `transform: scale` mehr für Karten (`ScaledTemplateCard` + `layoutScale`)
+- `ScrollView` für kleine Displays in `CardDetailModal`
+- `CardStyles.typeLabel`: `opacity: 0` statt `fontSize: 0`
+
+Details: [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md)
+
+## Health Check
+
+*Stand: 2026-06-19*
+
+**Syntax (behoben):**
+
+- `MagicCardModal.js` — `useEffect`-Klammern / doppelte Auto-Hooks bereinigt
+- `ScaledTemplateCard.js` — doppelte `cardFields`-Deklaration entfernt
+
+**JSON:** `package.json`, `app.json`, `eas.json`, `firebase.json`, `tsconfig.json` — alle valid ✅
+
+**Web Export:** `npx expo export --platform web --clear` — erfolgreich ✅
+
+**Lint:** 0 Errors, 12 Warnings (`react-hooks/exhaustive-deps`, `safeTextMetrics.js` unused imports)
+
+**Tests erfolgreich:**
+
+| Script | Status |
+|--------|--------|
+| `test:card-frame` | ✅ |
+| `test:card-modal` | ✅ |
+| `test:card-display` | ✅ |
+| `test:safe-text-metrics` | ✅ |
+| `test:player-seat` | ✅ |
+| `test:late-join` | ✅ |
+| `test:lobby-lifecycle` | ✅ |
+| `test:session-resume` | ✅ |
+| `test:test-access` | ✅ |
+| `test:table-layout` | ✅ |
+| `test:reaction-layout` | ✅ |
+| `test:effects-used` | ✅ |
+| `test:monster-setup-preview` | ✅ |
+| `test:commentator` | ✅ |
+
+## Kommentator (AI-Spielmoderator)
+
+*Stand: 2026-06-19 · Details: [docs/KOMMENTATOR.md](docs/KOMMENTATOR.md)*
+
+| Phase | Thema | Status |
+|-------|--------|--------|
+| 1–4 | Lokaler Kommentator, UI, Stile, Session-Stats | ✅ umgesetzt |
+| 5 | AI-Kommentator (OpenAI-kompatibel / generischer Endpoint) | ✅ vorhanden, **Standard deaktiviert** (`useAiCommentator: false`) |
+| 6 | Sprachausgabe (OpenAI Onyx + ElevenLabs) | ✅ vorhanden, **Standard deaktiviert** (`voiceCommentatorEnabled: false`) |
+| 7 | Abschlussbericht / Session-Awards | ✅ umgesetzt (`/session-summary`) |
+| 8 | Group Personality / Inside Jokes | ✅ MVP (Lobby, Firestore, Live-Kommentare) |
+| 9 | Cross-Session Memory | 📋 geplant |
+
+**Integration:** `useCommentator` + `CommentatorBubble` in `app/game.js` · Einstellungen `/settings/commentator` (Link von Home) · optional Lobby-Prep `CommentatorLobbyPrepPanel`
+
+**Env (optional):** `EXPO_PUBLIC_COMMENTATOR_AI_*` / `EXPO_PUBLIC_OPENAI_API_KEY` (AI + OpenAI TTS), `EXPO_PUBLIC_ELEVENLABS_*` — siehe `.env.example`
+
+**Tests:** `npm run test:commentator` (99 Assertions)
+
+## Offene Punkte
+
+- Preview-APK an Freunde ausrollen / Multi-Device-Smoke-Test
+- iPhone Safari Multiplayer testen (Web-Client)
+- Firebase Hosting deployen + Web testen — [docs/BUILD_WEB.md](docs/BUILD_WEB.md)
+- Web-Header / Banner endgültig prüfen
+- Firestore Security Rules später härten (nicht Blocker für ersten Freunde-Test)
 
 ### MVP-Fortschritt (geschätzt)
 
 | Bereich | % | Stand |
 |---------|---|-------|
-| Infrastruktur | **92 %** | Expo, Lint, 14+ Test-Scripts, EAS-Config, Dev Client optional |
+| Infrastruktur | **93 %** | Dev Client, adb, 14 Test-Scripts, EAS `preview` APK |
 | Lobby | **90 %** | Erstellen, Join, Ready, Start |
 | Multiplayer | **80 %** | Sync + Late Join (Code ✅, Geräte-Test offen) |
 | Gameplay | **88 %** | Phasen, Voting, Monster 1×/Runde, Reaktions-UX mobile |
-| Android Build | **80 %** | EAS `preview` APK — neuer Build für Freunde-Test geplant |
+| Android Build | **85 %** | EAS `preview` APK ✅ (`3bb4e88f`); Freunde-Test ausstehend |
 | iOS / iPhone (Web) | **40 %** | Export ✅, `firebase.json` ✅, `TestAccessGate` ✅; Deploy + Safari-Test offen |
 | Firebase | **75 %** | Schema, Transaction-Join, Rules offen |
-| APK / Cross-Platform Testing | **25 %** | APK gebaut; manueller Multi-Device-Test ausstehend |
+| APK / Cross-Platform Testing | **35 %** | Preview-APK gebaut; manueller Multi-Device-Test ausstehend |
 
 **Gesamt-MVP: ~78 %** — Details: [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md), Checkliste: [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md)
 
@@ -154,13 +273,9 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 - **Rebranding-Assets** exportiert (`assets/icon.png`, Splash, Adaptive Icon)
 - **Expo slug:** `jahw3-app` (EAS-Projekt-ID; Display-Name **WodkaO**, Deep-Link-Scheme **wodkao**)
 
-**Aktueller Fokus:** Freunde-Test mit Preview-APK (Android) + iPhone via Web/Safari
+**Aktueller Fokus:** Freunde-MVP-Test — Preview-APK (`3bb4e88f`) + Dev Client für weitere Fixes
 
-**Offene Punkte:**
-- Web/Firebase Hosting für iPhone deployen und testen
-- Multi-Device Smoke-Test (2× Android + Safari)
-- Firestore Rules später härten
-- Web-Banner/Header final prüfen falls noch sichtbar
+*(Details zu Card Modal / Voting siehe Abschnitte **Card System**, **Templates**, **Android Crash Fix** oben.)*
 
 ### Neu umgesetzt (Monster-Modal Android-Crash — 2026-06-18)
 
@@ -225,7 +340,7 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 - **Mehrfachklick-Schutz** via `useAsyncLock` (Lobby + Game + Modals)
 - **Karten-Viewing-Presence** — Denkblase bei Monster-/Fallenkarten (`viewingCard` in Firestore)
 - **Lobby-Ablauf:** Lobbys ohne Aktivität >2h → `status: "expired"`, Join blockiert — siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md)
-- **Lint:** 0 Errors, 11 Warnings (`react-hooks/exhaustive-deps`)
+- **Lint:** 0 Errors, 12 Warnings (`react-hooks/exhaustive-deps`)
 - **Mobile Web:** Responsive Modals, Safe Area, Höhen-Breakpoints (`responsive.js`, `ResponsiveCard.js`)
 
 ### Online-Multiplayer (Firebase) — MVP-Pflicht
@@ -399,11 +514,11 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ## Nächste Prioritäten
 
-### Priorität 1 — APK & Multiplayer
+### Priorität 1 — Freunde-MVP-Test
 
-- ~~EAS Login + erster APK-Build~~ — ✅ Build `a762578b` (2026-06-14)
-- APK auf 2+ Geräten installieren: Smoke-Test ([docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md))
-- Multiplayer-End-to-End: Android APK + iPhone Safari (nach Firebase Hosting Deploy)
+- ~~EAS Preview-APK~~ — ✅ Build `3bb4e88f` (2026-06-19, Commit `19f9b5d`)
+- APK auf 2+ Android-Geräten installieren — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md)
+- Multiplayer End-to-End: Android APK + iPhone Safari (nach Firebase Hosting Deploy)
 - Late Join mit 3+ Clients manuell verifizieren
 
 ### Priorität 2 — Stabilisierung
@@ -442,14 +557,17 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 Sauf Viel-Oh/         # Projektroot (Git + Expo App)
   app/                # expo-router screens (index, lobby, game, gallery, settings)
   src/
-    components/       # Card, GameBoard, CardDetailModal, GameExitButton, TestAccessGate, …
+    components/       # Card, TemplateCardRenderer, CardDetailModal, MagicCardModal, …
+    features/
+      commentator/    # Kommentator Phasen 1–8 (Bubble, AI, TTS, Awards, Personality)
     hooks/            # useLobby, useGameExit, useTestAccess, useAsyncLock, …
-    utils/            # gameActions, lateJoin, sessionResume, cardDisplay, testAccess, …
+    utils/            # gameActions, cardFrameCore, cardDisplay, effectsUsed, reactionLayout, …
     config/           # timers, gamePhases
     styles/           # CardStyles, gameStyles
   assets/
     fonts/            # DidactGothic
     images/cards/     # ~70 card PNGs
+    images/templates/ # monster_frame, magic_frame, trap_frame
   docs/               # MVP, Firebase, Build, Spielablauf
   scripts/            # Tests, Lobby-Cleanup
   public/             # robots.txt (Web noindex)
@@ -468,13 +586,14 @@ Sauf Viel-Oh/         # Projektroot (Git + Expo App)
 | Script | Command |
 |--------|---------|
 | Start dev server | `npm start` |
+| **Dev Client** | `npx expo start --dev-client` |
 | Android | `npm run android` |
 | iOS | `npm run ios` |
 | Web | `npm run web` |
 | Web export | `npm run export:web` |
 | Firebase Hosting deploy | `npm run deploy:hosting` |
 | Lint | `npm run lint` |
-| Tests (Node) | `npm run test:lobby-lifecycle`, `test:late-join`, `test:card-display`, `test:card-modal`, `test:player-seat`, `test:session-resume`, `test:test-access`, `test:table-layout` |
+| Tests (Node) | `test:card-frame`, `test:card-modal`, `test:card-display`, `test:safe-text-metrics`, `test:reaction-layout`, `test:effects-used`, `test:card-modal-debug`, `test:lobby-lifecycle`, `test:late-join`, `test:player-seat`, `test:session-resume`, `test:test-access`, `test:table-layout`, `test:commentator` |
 | Lobby cleanup | `npm run cleanup:lobbies` |
 
 Not configured: `typecheck`, aggregiertes `test` (einzelne `test:*`-Scripts vorhanden).
@@ -526,20 +645,20 @@ Do **not** commit if lint reports errors.
 
 | File | Issue |
 |------|-------|
-| `MagicCardModal.js` | 7× `react-hooks/exhaustive-deps` |
+| `MagicCardModal.js` | 5× `react-hooks/exhaustive-deps` |
 | `useGameFirebase.js` | 2× `react-hooks/exhaustive-deps` |
 | `app/game.js` | 1× `react-hooks/exhaustive-deps` |
-| `app/lobby.js` | 1× `react-hooks/exhaustive-deps` |
-| `ResponsiveCard.js` | 1× `no-unused-vars` (`CARD_BASE_HEIGHT`) |
+| `app/index.js` | 1× `react-hooks/exhaustive-deps` |
+| `safeTextMetrics.js` | 3× `no-unused-vars` |
 
-0 errors as of 2026-06-14 (12 warnings). See `docs/testing.md`.
+0 errors as of 2026-06-19 (12 warnings). Siehe auch Abschnitt **Health Check** oben.
 
 ---
 
 ## Release
 
 - **Test-APK:** [docs/BUILD_ANDROID.md](docs/BUILD_ANDROID.md) — EAS + `buildType: apk`, `eas.json` im Repo
-- **Letzter erfolgreicher Build:** `a762578b` (2026-06-14) — [APK-Download](https://expo.dev/artifacts/eas/m92ZAHz4LWCY1pSOuRn-CeOOn-pNxruUKORXEeP0RoA.apk)
+- **Letzter erfolgreicher Build:** `3bb4e88f` (2026-06-19, Commit `19f9b5d`) — [Build-Seite](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/3bb4e88f-1e3f-4ee6-a8fb-5563990afced) · [APK](https://expo.dev/artifacts/eas/CmF6K4Syr6f2I1OjeGnrOBApht88XQu8Wy2P2rwRfxE.apk)
 - `android.package`: `com.wodkao.app` — konfiguriert
 - Version in `app.json` / `package.json`
 - Set `PACKAGE_NAME` / `BUNDLE_ID` before **store** upload (nicht nötig für sideload-APK)
@@ -664,6 +783,8 @@ Env-Variablen: `EXPO_PUBLIC_GOOGLE_SHEET_ID`, `EXPO_PUBLIC_GOOGLE_GID_*`, Fireba
 | Lobby | `/lobby` | Erstellen/Beitreten/Ready/Start | ✅ |
 | Spiel | `/game` | Hauptspiel-Loop | ✅ |
 | Galerie | `/gallery` | Alle Karten anzeigen | ✅ |
+| Kommentator-Settings | `/settings/commentator` | Kommentator An/Aus, Stil, AI, Voice | ✅ |
+| Session-Abschluss | `/session-summary` | Kommentator-Awards nach Spielende | ✅ |
 | Timer-Settings | `/settings/timers` | Lobby-Timer konfigurieren | ❌ Nicht verlinkt |
 
 ### Spielmodi
@@ -837,31 +958,29 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 | Priority | Item |
 |----------|------|
 | ~~Hoch~~ | ~~Fix lint errors~~ — ✅ erledigt (Stabilisierung Session) |
-| Hoch | **Multi-Device-Smoke-Test** (APK `a762578b` + Web) inkl. Late Join — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
-| Hoch | Firestore Security Rules vor Freunde-Test verifizieren |
+| Hoch | **Multi-Device-Smoke-Test** (APK `3bb4e88f` + Web) inkl. Late Join — [docs/MVP_RELEASE_CHECKLIST.md](docs/MVP_RELEASE_CHECKLIST.md) |
 | Hoch | Firebase Hosting Deploy für iPhone-Web-MVP — [docs/BUILD_WEB.md](docs/BUILD_WEB.md) |
+| Mittel | Firestore Security Rules härten (nach Freunde-Test) |
 | Mittel | Local card data fallback (reduce Sheets dependency) |
 | Mittel | Aggregiertes `npm test` + optional `typecheck` |
 | ~~Niedrig~~ | ~~Add `eas.json` for release builds~~ — ✅ erledigt |
-| ~~Niedrig~~ | ~~EAS Login + erster APK-Build~~ — ✅ `a762578b` (2026-06-14) |
+| ~~Niedrig~~ | ~~EAS Login + erster APK-Build~~ — ✅ `3bb4e88f` (2026-06-19) |
 | ~~Niedrig~~ | ~~App slug/display name konsistent benennen~~ — ✅ Rebranding `wodkao` (2026-06-18) |
 | Niedrig | Legacy `VotePanel.js` aus Repo entfernen |
-
 ---
 
 ## Git-Status
 
-*Stand: 2026-06-14*
+*Stand: 2026-06-19*
 
 | Eigenschaft | Wert |
 |-------------|-------|
 | **Ziel-Repo** | https://github.com/maksimscheierman-prof/WodkaO |
 | **Repo-Pfad** | `Sauf Viel-Oh/.git` |
 | **Branch** | `feature/mvp-online-apk` |
-| **Letzter Commit** | `c2cc056` — `fix: prevent Android monster modal crash and improve web layout` |
-| **Working tree** | Sauber (nur lokale IDE-Settings `.vscode/settings.json` uncommitted) |
-
-Push-Status: Branch lokal; Push nur auf explizite Anweisung.
+| **Letzter Commit** | `19f9b5d` — `fix: restore EAS slug jahw3-app for preview build compatibility` |
+| **Vorheriger Feature-Commit** | `53ae720` — `fix: stabilize card modal and prepare preview testing` |
+| **Remote** | Gepusht auf `origin/feature/mvp-online-apk` |
 
 ---
 

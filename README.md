@@ -12,7 +12,10 @@ cp .env.example .env   # Firebase + Google Sheets Keys eintragen
 npm start              # Expo Dev Server
 npm run web            # Browser
 npm run lint
+npm run test:commentator   # optional: Kommentator-Unit-Tests
 ```
+
+**Optional — AI-Kommentator & Voice:** `.env` mit `EXPO_PUBLIC_COMMENTATOR_AI_API_KEY` (AI-Text + OpenAI TTS Onyx) und/oder `EXPO_PUBLIC_ELEVENLABS_*`. Einstellungen in der App unter `/settings/commentator`. Details: [docs/KOMMENTATOR.md](docs/KOMMENTATOR.md)
 
 Vollständige Doku: [project.md](project.md) · [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md)
 

@@ -103,6 +103,7 @@ Array von Objekten — **keine** Subcollection.
 | `resolvedEffect` | object \| null | Aufgelöster Effekt |
 | `resultAcks` | `{ [name]: boolean }` | OK-Bestätigungen |
 | `effectsUsed` | object | Monster bereits aktiviert |
+| `pendingTrapChoice` | `{ playerKey, existingTrap, drawnTrap, startedAt }` \| null | Fallen-Auswahl nach zweitem Trap-Zug |
 | `*StartedAt` | number \| null | Timer-Anker (reactions, voting, …) |
 
 ### Late Join
@@ -112,9 +113,20 @@ Array von Objekten — **keine** Subcollection.
 | `lastJoinAnnouncement` | `{ name, at, hadMonster }` \| null | Letzter Beitritt — UI-Toast für andere Spieler |
 | `joinLog` | `{ name, at }[]` | Optional, letzte 20 Join-Events |
 
-**Join-Transaction** (`joinLobbyTransaction`): atomar Spieler anhängen, Monster aus `monsterDeck` ziehen, `reactions` ergänzen — ohne `turn`, `gamePhase`, `votes` zu ändern.
+### Kommentator — Group Personality (Phase 8 MVP)
 
-**MVP Release-Checks:** [MVP_RELEASE_CHECKLIST.md](MVP_RELEASE_CHECKLIST.md#multiplayer--late-join)
+Lobbybezogen auf dem Lobby-Dokument — **keine** globale Langzeitspeicherung.
+
+| Feld | Typ | Beschreibung |
+|------|-----|--------------|
+| `commentatorPersonality.consentByPlayerId` | `{ [playerId]: PlayerCommentatorSettings }` | Selbst-Grenzen pro Spieler |
+| `commentatorPersonality.friendInputsByAuthor` | `{ [authorId]: { [targetId]: FriendInput } }` | Antworten **über andere** Spieler |
+
+**PlayerCommentatorSettings:** `playerId`, `consentToPersonalComments`, `roastLevel` (`off` \| `mild` \| `medium` \| `hard` \| `no_boundaries`), `noGoTopics[]`, `updatedAt`
+
+**FriendInput:** `authorPlayerId`, `targetPlayerId`, `suggestedNickname`, `typicalMoment`, `runningJoke`, `harmlessRoast`, `oneLiner`, `updatedAt`
+
+UI: optional in Wartelobby (`CommentatorLobbyPrepPanel`) — blockiert Spielstart nicht.
 
 ### Card-Objekt (typisch)
 

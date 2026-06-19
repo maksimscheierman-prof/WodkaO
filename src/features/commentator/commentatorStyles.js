@@ -1,0 +1,24 @@
+/** Verfügbare Kommentator-Persönlichkeiten (Phase 2). */
+export const COMMENTATOR_STYLES = {
+  NEUTRAL: "neutral",
+  LOCKER: "locker",
+  CHAOTIC: "chaotic",
+  ANIME: "anime",
+  TAVERN: "tavern",
+};
+
+export const COMMENTATOR_STYLE_ORDER = [
+  COMMENTATOR_STYLES.NEUTRAL,
+  COMMENTATOR_STYLES.LOCKER,
+  COMMENTATOR_STYLES.CHAOTIC,
+  COMMENTATOR_STYLES.ANIME,
+  COMMENTATOR_STYLES.TAVERN,
+];
+
+export const COMMENTATOR_STYLE_LABELS = {
+  [COMMENTATOR_STYLES.NEUTRAL]: "Neutral",
+  [COMMENTATOR_STYLES.LOCKER]: "Locker",
+  [COMMENTATOR_STYLES.CHAOTIC]: "Chaotisch",
+  [COMMENTATOR_STYLES.ANIME]: "Anime-Duell",
+  [COMMENTATOR_STYLES.TAVERN]: "Kneipenmeister",
+};

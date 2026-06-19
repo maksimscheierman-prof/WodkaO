@@ -166,6 +166,13 @@ export default function Index() {
 
       <TouchableOpacity
         style={buttonStyle}
+        onPress={() => router.push("/settings/commentator")}
+      >
+        <Text style={textStyle}>🎙️ Kommentator</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={buttonStyle}
         onPress={() =>
           router.push({ pathname: "/gallery", params: { playerName } })
         }

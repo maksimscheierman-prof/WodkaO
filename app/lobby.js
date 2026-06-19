@@ -2,8 +2,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import CommentatorLobbyPrepPanel from "../src/features/commentator/CommentatorLobbyPrepPanel";
 import { db } from "../firebaseConfig";
 import { DEFAULT_TIMERS, EMPTY_TIMER_STARTS } from "../src/config/timers";
 import { useAsyncLock } from "../src/hooks/useAsyncLock";
@@ -43,6 +44,8 @@ export default function Lobby() {
   const [createdCode, setCreatedCode] = useState(null);
   const [lobbyId, setLobbyId] = useState(null);
   const [players, setPlayers] = useState([]);
+  const [lobbyStatus, setLobbyStatus] = useState(null);
+  const [lobbySnapshot, setLobbySnapshot] = useState(null);
   const [message, setMessage] = useState(null);
 
   const createLock = useAsyncLock();
@@ -87,6 +90,8 @@ export default function Lobby() {
     const unsub = onSnapshot(ref, async (snap) => {
       if (!snap.exists()) {
         setPlayers([]);
+        setLobbyStatus(null);
+        setLobbySnapshot(null);
         setMessage({ type: "error", text: "❌ Lobby nicht mehr vorhanden." });
         setLobbyId(null);
         setCreatedCode(null);
@@ -104,6 +109,8 @@ export default function Lobby() {
         }
         await clearSession();
         setPlayers([]);
+        setLobbyStatus(null);
+        setLobbySnapshot(null);
         setLobbyId(null);
         setCreatedCode(null);
         setMessage({ type: "error", text: EXPIRED_LOBBY_MESSAGE });
@@ -111,6 +118,8 @@ export default function Lobby() {
       }
 
       setPlayers(data.players || []);
+      setLobbyStatus(data.status ?? null);
+      setLobbySnapshot(data);
 
       const me = (data.players || []).find((p) => p.name === playerName);
       await saveSession({
@@ -376,6 +385,8 @@ export default function Lobby() {
       setLobbyId(null);
       setCreatedCode(null);
       setPlayers([]);
+      setLobbyStatus(null);
+      setLobbySnapshot(null);
       await clearSession();
       setMessage({ type: "info", text: "Du hast die Lobby verlassen." });
     }).catch((error) => {
@@ -392,19 +403,28 @@ export default function Lobby() {
     readyLock.isLocked ||
     leaveLock.isLocked ||
     isStarting;
+  const lobbyRef = lobbyId ? doc(db, "lobbies", lobbyId) : null;
+  const showCommentatorPrep =
+    !!lobbyId && lobbyStatus === LOBBY_STATUS.WAITING && !!me;
 
   return (
     <LinearGradient
       colors={["#1a0033", "#000000"]}
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 16,
-        padding: 20,
-        paddingTop: 20 + insets.top,
-      }}
+      style={{ flex: 1 }}
     >
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 16,
+          padding: 20,
+          paddingTop: 20 + insets.top,
+          paddingBottom: 20 + insets.bottom,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       {message && (
         <View
           style={{
@@ -490,7 +510,7 @@ export default function Lobby() {
       )}
 
       {players.length > 0 && (
-        <View style={{ marginTop: 30, alignItems: "center" }}>
+        <View style={{ marginTop: 10, alignItems: "center" }}>
           <Text style={{ color: "#fff", fontWeight: "bold" }}>
             Spieler in Lobby:
           </Text>
@@ -501,6 +521,16 @@ export default function Lobby() {
           ))}
         </View>
       )}
+
+      {showCommentatorPrep && lobbyRef ? (
+        <CommentatorLobbyPrepPanel
+          lobbyRef={lobbyRef}
+          lobbyData={lobbySnapshot}
+          me={me}
+          players={players}
+          disabled={lobbyBusy}
+        />
+      ) : null}
 
       {lobbyId && (
         <TouchableOpacity
@@ -540,6 +570,7 @@ export default function Lobby() {
           )}
         </TouchableOpacity>
       )}
+      </ScrollView>
     </LinearGradient>
   );
 }
