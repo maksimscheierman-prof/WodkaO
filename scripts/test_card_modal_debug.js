@@ -21,7 +21,10 @@ function assert(name, condition) {
   }
 }
 
-assert("debug on in dev by default", isCardModalDebugEnabled({ NODE_ENV: "development" }));
+assert(
+  "debug off without explicit flag",
+  !isCardModalDebugEnabled({ NODE_ENV: "development" })
+);
 assert(
   "debug on with EXPO_PUBLIC_CARD_MODAL_DEBUG=1 in prod",
   isCardModalDebugEnabled({ NODE_ENV: "production", EXPO_PUBLIC_CARD_MODAL_DEBUG: "1" })

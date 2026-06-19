@@ -1,5 +1,5 @@
-// src/utils/gameActions.js
 import { updateDoc } from "firebase/firestore";
+import { applyApprovedEffectUsage, canActivateMonsterEffect } from "./effectsUsedCore";
 import { GAME_PHASES } from "../config/gamePhases";
 import { EMPTY_TIMER_STARTS } from "../config/timers";
 import { drawTopCard } from "./gameLogic";
@@ -293,7 +293,19 @@ export const handleDrink = async (lobbyRef, lobby, targetPlayerName) => {
 /* --------------------------------
  * Effekt aktivieren (Monster / Falle)
  * -------------------------------- */
-export const handleActivateEffect = async (lobbyRef, card, sourcePlayer) => {
+export const handleActivateEffect = async (lobbyRef, lobby, card, sourcePlayer) => {
+  const cardType = (card?.type || "").toLowerCase();
+  const currentRound = lobby?.round ?? 1;
+
+  if (cardType === "monster") {
+    if (!canActivateMonsterEffect(lobby?.effectsUsed, sourcePlayer, currentRound)) {
+      console.warn(
+        `[EFFECT] ${sourcePlayer} — Monster-Effekt in Runde ${currentRound} bereits genutzt`
+      );
+      return;
+    }
+  }
+
   try {
     await updateDoc(lobbyRef, {
       activeEffect: { player: sourcePlayer, card },
@@ -360,13 +372,12 @@ export const handleVote = async (lobbyRef, lobby, playerName, vote) => {
             p.name === eff.player ? { ...p, trap: null } : p
           );
         } else if (cardType === "monster") {
-          updates.effectsUsed = {
-            ...(lobby.effectsUsed || {}),
-            [eff.player]: {
-              ...(lobby.effectsUsed?.[eff.player] || {}),
-              monster: true,
-            },
-          };
+          updates.effectsUsed = applyApprovedEffectUsage(
+            lobby.effectsUsed,
+            eff.player,
+            "monster",
+            lobby.round ?? 1
+          );
         }
       }
 

@@ -1,10 +1,11 @@
-import { Alert, Image, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
 import {
   getMonsterPressLog,
   getNativeImageSourceFromCard,
   isValidPlayableCard,
   normalizeCardForDisplay,
 } from "../utils/cardDisplay";
+import { isMonsterEffectUsedThisRound } from "../utils/effectsUsed";
 import {
   recordCardModalDebug,
   recordCardModalError,
@@ -29,8 +30,15 @@ export default function PlayerSeat({
   isMe,
   onSelectCard,
   compact = false,
+  currentRound = 1,
+  effectsUsed = null,
 }) {
   if (!player || !cardPosition || !avatarPosition) return null;
+
+  const monsterUsedThisRound =
+    isMe &&
+    player.monster &&
+    isMonsterEffectUsedThisRound(effectsUsed, player.name, currentRound);
 
   const bubbleText = !isMe
     ? getViewingCardLabel(player?.viewingCard?.type)
@@ -123,16 +131,47 @@ export default function PlayerSeat({
               onPress={() => openSeatCard(player.monster, "monster")}
               hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
             >
-              <Image
-                source={monsterSource}
-                style={{
-                  width: cardWidth,
-                  height: cardHeight,
-                  marginHorizontal: 2,
-                  borderRadius: 4,
-                }}
-                resizeMode="cover"
-              />
+              <View style={{ position: "relative" }}>
+                <Image
+                  source={monsterSource}
+                  style={{
+                    width: cardWidth,
+                    height: cardHeight,
+                    marginHorizontal: 2,
+                    borderRadius: 4,
+                    opacity: monsterUsedThisRound ? 0.55 : 1,
+                  }}
+                  resizeMode="cover"
+                />
+                {monsterUsedThisRound ? (
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: "absolute",
+                      left: 2,
+                      right: 2,
+                      top: 0,
+                      bottom: 0,
+                      borderRadius: 4,
+                      backgroundColor: "rgba(0,0,0,0.35)",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      paddingHorizontal: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#fff",
+                        fontSize: 8,
+                        fontWeight: "bold",
+                        textAlign: "center",
+                      }}
+                    >
+                      Effekt genutzt
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </TouchableOpacity>
           )}
           {player.trap && (

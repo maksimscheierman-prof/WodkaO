@@ -13,17 +13,18 @@ import {
   getCardOpenLog,
   normalizeCardForDisplay,
 } from "../utils/cardDisplay";
+import { resolveCardFrameType } from "../utils/cardFrame";
 import { shouldShowCardModal } from "../utils/cardModalCore";
 import {
   recordCardModalDebug,
   recordCardModalError,
   shouldUseAndroidSafeCardModal,
 } from "../utils/cardModalDebug";
-import { getModalCardDimensions } from "../utils/responsive";
+import { getReactionDetailCardBounds } from "../utils/reactionLayout";
 import AndroidSafeCardDetail from "./AndroidSafeCardDetail";
-import Card from "./Card";
 import ErrorBoundary from "./ErrorBoundary";
 import SafeText from "./SafeText";
+import TemplateCardRenderer from "./TemplateCardRenderer";
 
 const closeBtnStyle = {
   marginTop: 16,
@@ -39,59 +40,29 @@ const closeBtnStyle = {
   elevation: 20,
 };
 
-function CardModalBody({ normalized, displayType, maxCardArea, renderMode }) {
+function CardModalBody({ card, displayType, useLegacySafe, maxWidth, maxHeight }) {
+  const frameType = resolveCardFrameType(displayType, "monster");
   recordCardModalDebug("modal_body_render_start", {
-    name: normalized?.name,
+    name: card?.name,
     type: displayType,
-    imageUri: normalized?.image?.uri ?? null,
-    renderMode,
+    frameType,
+    imageUri: card?.image?.uri ?? null,
+    renderMode: useLegacySafe ? "android-safe-legacy" : "template-card",
   });
 
-  if (renderMode === "android-safe") {
+  if (useLegacySafe) {
     return (
-      <AndroidSafeCardDetail normalized={normalized} displayType={displayType} />
+      <AndroidSafeCardDetail normalized={card} displayType={displayType} />
     );
   }
 
   return (
-    <>
-      <View
-        collapsable={false}
-        style={{
-          flexShrink: 0,
-          maxHeight: maxCardArea,
-          width: 320,
-          zIndex: 10,
-          elevation: 10,
-        }}
-      >
-        <Card
-          title={normalized.name}
-          description={normalized.effect}
-          image={normalized.image}
-          type={displayType}
-          atk={normalized.atk}
-          def={normalized.def}
-          stars={normalized.stars}
-          monsterType={normalized.monsterType}
-        />
-      </View>
-
-      <SafeText
-        component="CardDetailModal.caption"
-        style={{
-          color: "#d4c4e8",
-          fontSize: 13,
-          marginTop: 10,
-          textAlign: "center",
-        }}
-      >
-        {normalized.name} ·{" "}
-        {displayType === "unbekannt"
-          ? "Unbekannt"
-          : displayType.toUpperCase()}
-      </SafeText>
-    </>
+    <TemplateCardRenderer
+      card={card}
+      fallbackType={displayType}
+      maxWidth={maxWidth}
+      maxHeight={maxHeight}
+    />
   );
 }
 
@@ -106,13 +77,9 @@ export default function CardDetailModal({
 }) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { height: maxCardArea } = getModalCardDimensions(
-    screenWidth,
-    screenHeight,
-    200
-  );
-  const useAndroidSafe = shouldUseAndroidSafeCardModal();
-  const renderMode = useAndroidSafe ? "android-safe" : "full-card";
+  const detailBounds = getReactionDetailCardBounds(screenWidth, screenHeight);
+  const useLegacySafe = shouldUseAndroidSafeCardModal();
+  const renderMode = useLegacySafe ? "android-safe-legacy" : "template-card";
 
   const normalized = useMemo(() => {
     if (!card) return null;
@@ -172,6 +139,7 @@ export default function CardDetailModal({
     modalOpen: true,
     name: normalized.name,
     type: displayType,
+    frameType: resolveCardFrameType(displayType, "monster"),
     imageUri: normalized.image?.uri ?? null,
     renderMode,
   });
@@ -208,16 +176,17 @@ export default function CardDetailModal({
           }}
           bounces={false}
           keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled={false}
+          nestedScrollEnabled={Platform.OS === "android"}
         >
           <ErrorBoundary
             context={{ source, cardName: normalized.name, renderMode }}
           >
             <CardModalBody
-              normalized={normalized}
+              card={normalized}
               displayType={displayType}
-              maxCardArea={maxCardArea}
-              renderMode={renderMode}
+              useLegacySafe={useLegacySafe}
+              maxWidth={detailBounds.maxWidth}
+              maxHeight={detailBounds.maxHeight}
             />
           </ErrorBoundary>
 

@@ -1,7 +1,5 @@
-import { Platform } from "react-native";
 import {
   createCardModalDebugStore,
-  isAndroidSafeModalForced,
   isCardModalDebugEnabled,
 } from "./cardModalDebugCore";
 
@@ -13,9 +11,8 @@ export function isCardModalDebugOn() {
 
 export function shouldUseAndroidSafeCardModal() {
   const flag = (process.env.EXPO_PUBLIC_CARD_MODAL_SAFE_ANDROID || "").trim();
-  if (flag === "0" || flag.toLowerCase() === "false") return false;
   if (flag === "1" || flag.toLowerCase() === "true") return true;
-  return Platform.OS === "android";
+  return false;
 }
 
 export function recordCardModalDebug(phase, data = {}) {

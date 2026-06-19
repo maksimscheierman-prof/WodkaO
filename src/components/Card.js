@@ -1,16 +1,26 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Image, ImageBackground, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import AutoFontSizeText from "../components/AutoFontSizeText";
 import SafeText from "../components/SafeText";
-import { cardStyles } from "../styles/CardStyles";
 import {
   DEFAULT_CARD_IMAGE,
   normalizeCardImage,
 } from "../utils/cardDisplay";
+import {
+  getTypeLabel,
+  resolveCardFrameType,
+} from "../utils/cardFrame";
 import { recordCardModalDebug } from "../utils/cardModalDebug";
+import { buildScaledCardStyles } from "../utils/scaledCardLayout";
 
 const CARD_BACK = require("../../assets/images/card_back.png");
+
+const FRAME_SOURCES = {
+  monster: require("../../assets/images/templates/monster_frame.png"),
+  magic: require("../../assets/images/templates/magic_frame.png"),
+  trap: require("../../assets/images/templates/trap_frame.png"),
+};
 
 export default function Card({
   title = "Mystischer-Raum-Cocktail",
@@ -21,28 +31,19 @@ export default function Card({
   stars = 4,
   monsterType = "[Effekt]",
   image,
+  layoutScale = 1,
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const styles = useMemo(
+    () => buildScaledCardStyles(layoutScale),
+    [layoutScale]
+  );
+  const starRightBase = Math.round(30 * layoutScale);
+  const starStep = Math.round(25 * layoutScale);
 
-  const normalizedType =
-    typeof type === "string" && type.trim().length > 0
-      ? type.trim().toLowerCase()
-      : "monster";
-
-  const frameSources = {
-    monster: require("../../assets/images/templates/monster_frame.png"),
-    magic: require("../../assets/images/templates/magic_frame.png"),
-    trap: require("../../assets/images/templates/trap_frame.png"),
-  };
-  const currentFrame = frameSources[normalizedType] || frameSources.monster;
-
-  const typeLabels = {
-    magic: "[ZAUBERKARTE]",
-    trap: "[FALLENKARTE]",
-    monster: monsterType || "[Effekt]",
-  };
-  const currentLabel =
-    typeLabels[normalizedType] || `[${normalizedType.toUpperCase()}]`;
+  const frameType = resolveCardFrameType(type, "monster");
+  const currentFrame = FRAME_SOURCES[frameType] || FRAME_SOURCES.monster;
+  const currentLabel = getTypeLabel(frameType, monsterType);
 
   const safeTitle = title || "Unbekannte Karte";
   const safeDescription = description || "Kein Effekttext verfügbar.";
@@ -63,13 +64,13 @@ export default function Card({
   const handleImageError = (err) => {
     const message = err?.nativeEvent?.error ?? err?.error ?? String(err);
     recordCardModalDebug("card_image_error", {
-      type: normalizedType,
+      type: frameType,
       title: safeTitle,
       imageUri: imageSource?.uri ?? null,
       error: message,
     });
     console.warn("[CARD IMAGE ERROR]", {
-      type: normalizedType,
+      type: frameType,
       title: safeTitle,
       source: imageSource,
       error: message,
@@ -80,14 +81,14 @@ export default function Card({
   return (
     <ImageBackground
       source={currentFrame}
-      style={cardStyles.cardTemplate}
+      style={styles.cardTemplate}
       resizeMode="stretch"
       collapsable={false}
     >
-      <View style={cardStyles.titleWrap}>
+      <View style={styles.titleWrap}>
         <AutoFontSizeText
           component="Card.title"
-          style={cardStyles.cardTitle}
+          style={styles.cardTitle}
           minFontSize={14}
           maxFontSize={20}
         >
@@ -95,32 +96,31 @@ export default function Card({
         </AutoFontSizeText>
       </View>
 
-      {normalizedType === "monster" &&
+      {frameType === "monster" &&
         [...Array(safeStars)].map((_, i) => (
           <Image
             key={i}
             source={require("../../assets/images/star.png")}
-            style={[cardStyles.starLevel, { right: 30 + i * 25 }]}
+            style={[styles.starLevel, { right: starRightBase + i * starStep }]}
             resizeMode="contain"
           />
         ))}
-      {(normalizedType === "magic" || normalizedType === "trap") && (
-        <SafeText component="Card.topTypeLabel" style={cardStyles.topTypeLabel}>
-          {currentLabel}
-        </SafeText>
-      )}
+
+      <SafeText component="Card.topTypeLabel" style={styles.topTypeLabel}>
+        {currentLabel}
+      </SafeText>
 
       {typeof imageSource === "number" ? (
         <Image
           source={imageSource}
-          style={cardStyles.imageBox}
+          style={styles.imageBox}
           resizeMode="cover"
           onError={handleImageError}
         />
       ) : (
         <ExpoImage
           source={imageSource}
-          style={cardStyles.imageBox}
+          style={styles.imageBox}
           contentFit="cover"
           placeholder={CARD_BACK}
           placeholderContentFit="cover"
@@ -129,22 +129,16 @@ export default function Card({
         />
       )}
 
-      {normalizedType === "monster" && (
-        <SafeText component="Card.monsterType" style={cardStyles.typeLabel}>
-          {currentLabel}
-        </SafeText>
-      )}
-
-      <SafeText component="Card.description" style={cardStyles.monsterDescription}>
+      <SafeText component="Card.description" style={styles.monsterDescription}>
         {safeDescription}
       </SafeText>
 
-      {normalizedType === "monster" && (
+      {frameType === "monster" && (
         <>
-          <SafeText component="Card.atk" style={cardStyles.monsterAtk}>
+          <SafeText component="Card.atk" style={styles.monsterAtk}>
             ATK/{Number(atk) || 0}
           </SafeText>
-          <SafeText component="Card.def" style={cardStyles.monsterDef}>
+          <SafeText component="Card.def" style={styles.monsterDef}>
             DEF/{Number(def) || 0}
           </SafeText>
         </>

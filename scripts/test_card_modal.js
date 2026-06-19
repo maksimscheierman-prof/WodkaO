@@ -16,6 +16,7 @@ const {
   getGameCardModalSource,
   CARD_MODAL_SOURCES,
 } = require("../src/utils/cardModalCore.js");
+const { getFrameAssetPath } = require("../src/utils/cardFrameCore.js");
 
 let failed = 0;
 
@@ -116,6 +117,34 @@ const gamePress = getMonsterPressLog(
 );
 assert("game monster press log valid", gamePress.valid === true);
 assert("game monster press source type", gamePress.sourceType === "uri");
+
+const monster = normalizeCardForDisplay(gameMonster);
+assert(
+  "monster modal resolves frame path",
+  getFrameAssetPath(monster?.type).endsWith("monster_frame.png")
+);
+
+const votingMonster = normalizeCardForDisplay(
+  {
+    name: "Drache",
+    effect: "Alle trinken 2 Shots",
+    type: "MONSTER",
+    imageName: "drache",
+    atk: 5,
+    def: 3,
+  },
+  { defaultType: "monster" }
+);
+assert(
+  "voting activeEffect has effect text",
+  votingMonster.effect.includes("trinken")
+);
+assert(
+  "voting activeEffect uses monster frame",
+  getFrameAssetPath(votingMonster.type).endsWith("monster_frame.png")
+);
+assert("voting activeEffect has atk", votingMonster.atk === 5);
+assert("voting activeEffect has def", votingMonster.def === 3);
 
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed`);

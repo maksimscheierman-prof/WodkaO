@@ -64,7 +64,7 @@ Vollständige Liste: `.env.example`
 
 ### Option A — Expo Dashboard (empfohlen)
 
-1. [expo.dev](https://expo.dev) → Projekt **jahw3-app** / WodkaO  
+1. [expo.dev](https://expo.dev) → Projekt **wodkao** / WodkaO  
 2. **Environment variables** → Environment **`preview`**  
 3. Alle `EXPO_PUBLIC_*` aus lokaler `.env` eintragen (Plain text / sensitive nach Bedarf)
 

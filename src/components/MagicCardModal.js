@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Image,
   Modal,
   ScrollView,
   Text,
@@ -10,14 +9,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getTimers } from "../config/timers";
+import { canActivateMonsterEffect } from "../utils/effectsUsed";
 import {
-  CARD_BASE_HEIGHT,
-  CARD_BASE_WIDTH,
-  getModalCardDimensions,
-  getPreviewImageSize,
-  shouldStackReactionCards,
-} from "../utils/responsive";
-import ResponsiveCard from "./ResponsiveCard";
+  getReactionMagicCardBounds,
+} from "../utils/reactionLayout";
+import MagicReactionPanel from "./MagicReactionPanel";
+import SafeText from "./SafeText";
+import TemplateCardRenderer from "./TemplateCardRenderer";
+import VotingPhasePanel, { VoteButton, VoteButtonRow } from "./VotingPhasePanel";
 
 export default function MagicCardModal({
   lobby,
@@ -38,9 +37,7 @@ export default function MagicCardModal({
   const actionOpacity = actionDisabled ? 0.5 : 1;
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const previewSize = getPreviewImageSize(screenWidth, screenHeight);
-  const stackReactionCards = shouldStackReactionCards(screenWidth, screenHeight);
-  const trapBackSize = getModalCardDimensions(screenWidth, screenHeight, 280);
+  const magicBounds = getReactionMagicCardBounds(screenWidth, screenHeight);
 
   const touchBtn = {
     minHeight: 44,
@@ -54,10 +51,9 @@ export default function MagicCardModal({
   const playerKey = me?.name ?? "";
 
   //Hooks
-  const src = (img) => (typeof img === "string" ? { uri: img } : img);
   const isMagic = (t) => typeof t === "string" && t.toLowerCase() === "magic";
 
-  const [trapRevealed, setTrapRevealed] = useState(false);
+  const [selectedReactionCard, setSelectedReactionCard] = useState(null);
 
   const useCountdown = (startMs, durationSec, active) => {
     const [left, setLeft] = useState(durationSec);
@@ -135,20 +131,22 @@ export default function MagicCardModal({
 
   // Auto-Aktionen:
   useEffect(() => {
+    if (!inReaction) setSelectedReactionCard(null);
+  }, [inReaction]);
+
+  useEffect(() => {
     if (!playerKey) return;
-    if (isVoting && voteLeft === 0) {
-      const voted =
-        (lobby?.votes?.ja || []).includes(playerKey) ||
-        (lobby?.votes?.nein || []).includes(playerKey);
-      if (!voted) handleVote("ja");
-    }
+    if (!isVoting || voteLeft > 0) return;
+    const alreadyVoted =
+      (lobby?.votes?.ja || []).includes(playerKey) ||
+      (lobby?.votes?.nein || []).includes(playerKey);
+    if (!alreadyVoted) handleVote("ja");
   }, [isVoting, voteLeft, playerKey]);
 
   useEffect(() => {
     if (!playerKey) return;
-    if (hasResult && ackLeft === 0 && !lobby?.resultAcks?.[playerKey]) {
-      onResultOk(playerKey);
-    }
+    if (!hasResult || ackLeft > 0) return;
+    if (!lobby?.resultAcks?.[playerKey]) onResultOk(playerKey);
   }, [hasResult, ackLeft, playerKey]);
 
   useEffect(() => {
@@ -165,22 +163,6 @@ export default function MagicCardModal({
     discardLeft,
     lobby?.lastMagic,
   ]);
-
-  useEffect(() => {
-    if (!playerKey) return;
-    if (!isVoting || voteLeft > 0) return;
-    const alreadyVoted =
-      (lobby?.votes?.ja || []).includes(playerKey) ||
-      (lobby?.votes?.nein || []).includes(playerKey);
-    if (!alreadyVoted) handleVote("ja");
-  }, [isVoting, voteLeft, playerKey]);
-
-  // Auto: Ergebnis → OK nach 10s
-  useEffect(() => {
-    if (!playerKey) return;
-    if (!hasResult || ackLeft > 0) return;
-    if (!lobby?.resultAcks?.[playerKey]) onResultOk(playerKey);
-  }, [hasResult, ackLeft, playerKey]);
 
   // Auto: Reaktionsphase → Done nach 60s (nur Nicht-Zugspieler, wenn noch nicht reagiert)
   useEffect(() => {
@@ -205,72 +187,36 @@ export default function MagicCardModal({
             paddingBottom: insets.bottom,
           }}
         >
-          <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: "center",
-              alignItems: "center",
-              padding: 16,
-            }}
-            bounces={false}
+          <VotingPhasePanel
+            effectCard={eff?.card}
+            effectPlayer={eff?.player}
+            screenWidth={screenWidth}
+            screenHeight={screenHeight}
+            subtitle={`Effekt von ${eff?.player} zulassen?`}
+            actionDisabled={actionDisabled}
           >
-          <Image
-            source={
-              typeof eff.card?.image === "string"
-                ? { uri: eff.card.image }
-                : eff.card?.image
-            }
-            style={previewSize}
-          />
-          <Text style={{ color: "#fff", marginTop: 10, fontSize: 18 }}>
-            {eff.card?.name}
-          </Text>
-          <Text style={{ color: "#fff", marginTop: 10, fontSize: 16 }}>
-            Effekt von {eff.player} zulassen?
-          </Text>
-
-          <View style={{ flexDirection: "row", marginTop: 20, flexWrap: "wrap", justifyContent: "center" }}>
-            <TouchableOpacity
-              onPress={() => handleVote("ja")}
-              disabled={actionDisabled}
-              style={{
-                backgroundColor: "#1b5e20",
-                marginHorizontal: 8,
-                marginVertical: 4,
-                opacity: actionOpacity,
-                ...touchBtn,
-              }}
-            >
-              <Text style={{ color: "#bbb", marginBottom: 4 }}>
-                Auto-Ja in {fmt(voteLeft)}
-              </Text>
-              <Text style={{ color: "#fff" }}>
-                {actionDisabled ? "⏳" : "Ja ✅"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleVote("nein")}
-              disabled={actionDisabled}
-              style={{
-                backgroundColor: "#b71c1c",
-                marginHorizontal: 8,
-                marginVertical: 4,
-                opacity: actionOpacity,
-                ...touchBtn,
-              }}
-            >
-              <Text style={{ color: "#fff" }}>
-                {actionDisabled ? "⏳" : "Nein ❌"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          </ScrollView>
+            <VoteButtonRow>
+              <VoteButton
+                label={actionDisabled ? "⏳" : "Ja ✅"}
+                subLabel={`Auto-Ja in ${fmt(voteLeft)}`}
+                onPress={() => handleVote("ja")}
+                disabled={actionDisabled}
+                backgroundColor="#1b5e20"
+              />
+              <VoteButton
+                label={actionDisabled ? "⏳" : "Nein ❌"}
+                onPress={() => handleVote("nein")}
+                disabled={actionDisabled}
+                backgroundColor="#b71c1c"
+              />
+            </VoteButtonRow>
+          </VotingPhasePanel>
         </View>
       </Modal>
     );
   }
   if (hasResult) {
-    const eff = lobby.resolvedEffect; // { player, card, approved }
+    const eff = lobby.resolvedEffect;
     const acks = lobby.resultAcks || {};
     const total = lobby.players?.length || 0;
     const ackCount = Object.values(acks).filter(Boolean).length;
@@ -286,67 +232,43 @@ export default function MagicCardModal({
             paddingBottom: insets.bottom,
           }}
         >
-          <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: "center",
-              alignItems: "center",
-              padding: 16,
-            }}
-            bounces={false}
+          <VotingPhasePanel
+            effectCard={eff?.card}
+            effectPlayer={eff?.player}
+            screenWidth={screenWidth}
+            screenHeight={screenHeight}
+            subtitle={lobby.voteResult}
+            actionDisabled={actionDisabled}
           >
-          {!!eff?.card && (
-            <Image
-              source={src(eff.card.image)}
-              style={previewSize}
-            />
-          )}
-          <Text
-            style={{
-              color: "#fff",
-              fontSize: 20,
-              textAlign: "center",
-              marginTop: 10,
-            }}
-          >
-            {lobby.voteResult}
-          </Text>
+            {remaining > 0 ? (
+              <SafeText
+                component="MagicCardModal.resultWait"
+                style={{ color: "#ddd", fontSize: 13, marginBottom: 8, textAlign: "center" }}
+              >
+                Warten auf {remaining} Spieler…
+              </SafeText>
+            ) : null}
 
-          {/* Info: wie viele Bestätigungen fehlen noch */}
-          {remaining > 0 && (
-            <Text style={{ color: "#ddd", marginTop: 8 }}>
-              Warten auf {remaining} Spieler…
-            </Text>
-          )}
-
-          {/* Mein OK sendet ACK; Overlay bleibt bis ALLE ok gedrückt haben */}
-          {!acks[playerKey] ? (
-            <TouchableOpacity
-              onPress={() => onResultOk(playerKey)}
-              disabled={actionDisabled}
-              style={{
-                marginTop: 20,
-                backgroundColor: "#D9C9A3",
-                opacity: actionOpacity,
-                ...touchBtn,
-              }}
-            >
-              <Text style={{ color: "#000" }}>
-                {actionDisabled ? "⏳" : "OK"}
-              </Text>
-              <Text style={{ color: "#bbb", marginTop: 8 }}>
-                Auto-Ja in {fmt(voteLeft)}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={{ color: "#9f9", marginTop: 16 }}>✔️ Bestätigt</Text>
-          )}
-          {!acks[playerKey] && (
-            <Text style={{ color: "#bbb", marginTop: 8 }}>
-              Automatisch OK in {fmt(ackLeft)}
-            </Text>
-          )}
-          </ScrollView>
+            {!acks[playerKey] ? (
+              <>
+                <VoteButton
+                  label={actionDisabled ? "⏳" : "OK"}
+                  subLabel={`Automatisch OK in ${fmt(ackLeft)}`}
+                  onPress={() => onResultOk(playerKey)}
+                  disabled={actionDisabled}
+                  backgroundColor="#D9C9A3"
+                  textColor="#2E1F12"
+                />
+              </>
+            ) : (
+              <SafeText
+                component="MagicCardModal.resultAck"
+                style={{ color: "#9f9", fontSize: 15, marginTop: 8 }}
+              >
+                ✔️ Bestätigt
+              </SafeText>
+            )}
+          </VotingPhasePanel>
         </View>
       </Modal>
     );
@@ -365,6 +287,14 @@ export default function MagicCardModal({
     Object.values(reactions).filter((r) => r.done).length >=
     (lobby.players?.length || 0) - 1;
 
+  const inReactionRespond =
+    lobby.showMagic && !lobby.votingOpen && !isMyTurn && !hasReacted;
+  const canActivateMonster = canActivateMonsterEffect(
+    lobby.effectsUsed,
+    playerKey,
+    lobby.round ?? 1
+  );
+
   return (
     <Modal visible transparent animationType="fade">
       <View
@@ -375,374 +305,98 @@ export default function MagicCardModal({
           paddingBottom: insets.bottom,
         }}
       >
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            paddingHorizontal: 12,
-            paddingVertical: 16,
-          }}
-          bounces={false}
-        >
-        <ResponsiveCard
-          verticalPad={stackReactionCards ? 320 : 220}
-          title={card.name}
-          description={card.effect}
-          atk={card.atk}
-          def={card.def}
-          type={card.type || "magic"}
-          stars={card.stars}
-          monsterType={card.monsterType}
-          image={card.image}
-        />
-
-        {/* --- PHASE 1: Nur Show für Zugspieler --- */}
-        {isMyTurn && !lobby.showMagic && (
-          <TouchableOpacity
-            onPress={handleShow}
-            disabled={actionDisabled}
-            style={{
-              marginTop: 15,
-              backgroundColor: "#D9C9A3",
-              opacity: actionOpacity,
-              ...touchBtn,
+        {inReactionRespond ? (
+          <MagicReactionPanel
+            magicCard={card}
+            me={me}
+            screenWidth={screenWidth}
+            screenHeight={screenHeight}
+            selectedReactionCard={selectedReactionCard}
+            onSelectReactionCard={setSelectedReactionCard}
+            onDrink={() => handleDrink(playerKey)}
+            onActivateMonster={() => handleActivateEffect(me.monster)}
+            onActivateTrap={() => handleActivateEffect(me.trap)}
+            onDone={() => {
+              onDone(playerKey);
+              setSelectedReactionCard(null);
             }}
-          >
-            <Text>{actionDisabled ? "⏳ ..." : "👁️ Zeigen"}</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* --- PHASE 2: Reaktionsphase (nach Show) --- */}
-        {lobby.showMagic && !lobby.votingOpen && (
-          <>
-            {/* Nur andere Spieler dürfen reagieren */}
-            {!isMyTurn && !hasReacted && (
-              <View
-                style={{
-                  width: "100%",
-                  alignItems: "center",
-                  marginTop: 20,
-                }}
-              >
-                {/* 🍺 Trinken zentriert */}
-                <TouchableOpacity
-                  onPress={() => handleDrink(playerKey)}
-                  disabled={actionDisabled}
-                  style={{
-                    backgroundColor: "#D9C9A3",
-                    marginBottom: 10,
-                    minWidth: 160,
-                    opacity: actionOpacity,
-                    ...touchBtn,
-                  }}
-                >
-                  <Text>{actionDisabled ? "⏳ ..." : "🍺 Trinken (+1)"}</Text>
-                </TouchableOpacity>
-
-                <View
-                  style={{
-                    flexDirection: stackReactionCards ? "column" : "row",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    width: "100%",
-                    gap: stackReactionCards ? 12 : 0,
-                  }}
-                >
-                  <View style={{ alignItems: "center" }}>
-                    {me?.monster && (
-                      <>
-                        <ResponsiveCard
-                          verticalPad={380}
-                          title={me.monster.name}
-                          description={me.monster.effect}
-                          atk={me.monster.atk}
-                          def={me.monster.def}
-                          type={me.monster.type}
-                          stars={me.monster.stars}
-                          monsterType={me.monster.monsterType}
-                          image={me.monster.image}
-                        />
-
-                        <TouchableOpacity
-                          onPress={() => handleActivateEffect(me.monster)}
-                          disabled={actionDisabled}
-                          style={{
-                            marginTop: 5,
-                            backgroundColor: "#337",
-                            opacity: actionOpacity,
-                            ...touchBtn,
-                          }}
-                        >
-                          <Text style={{ color: "#fff" }}>
-                            {actionDisabled ? "⏳" : "⚡ Monster aktivieren"}
-                          </Text>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-
-                  <View style={{ alignItems: "center" }}>
-                    {me?.trap && (
-                      <>
-                        <TouchableOpacity
-                          onPress={() => setTrapRevealed((prev) => !prev)}
-                        >
-                          {trapRevealed ? (
-                            <ResponsiveCard
-                              verticalPad={380}
-                              title={me.trap.name}
-                              description={me.trap.effect}
-                              atk={me.trap.atk}
-                              def={me.trap.def}
-                              type={me.trap.type}
-                              stars={me.trap.stars}
-                              monsterType={me.trap.monsterType}
-                              image={me.trap.image}
-                            />
-                          ) : (
-                            <View
-                              style={{
-                                width: trapBackSize.width,
-                                height: trapBackSize.height,
-                                justifyContent: "center",
-                                alignItems: "center",
-                              }}
-                            >
-                              <View
-                                style={{
-                                  width: CARD_BASE_WIDTH,
-                                  height: CARD_BASE_HEIGHT,
-                                  transform: [{ scale: trapBackSize.scale }],
-                                }}
-                              >
-                                <Image
-                                  source={require("../../assets/images/card_back.png")}
-                                  style={{
-                                    width: CARD_BASE_WIDTH,
-                                    height: CARD_BASE_HEIGHT,
-                                    borderRadius: 16,
-                                  }}
-                                  resizeMode="cover"
-                                />
-                              </View>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleActivateEffect(me.trap)}
-                          disabled={actionDisabled}
-                          style={{
-                            marginTop: 5,
-                            backgroundColor: "#A33",
-                            opacity: actionOpacity,
-                            ...touchBtn,
-                          }}
-                        >
-                          <Text style={{ color: "#fff" }}>
-                            {actionDisabled ? "⏳" : "⚡ Falle aktivieren"}
-                          </Text>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-                </View>
-
-                {/* ✅ Done zentriert darunter */}
-                <TouchableOpacity
-                  onPress={() => {
-                    onDone(playerKey);
-                    setTrapRevealed(false);
-                  }}
-                  disabled={actionDisabled}
-                  style={{
-                    backgroundColor: "#D9C9A3",
-                    marginTop: 20,
-                    minWidth: 160,
-                    opacity: actionOpacity,
-                    ...touchBtn,
-                  }}
-                >
-                  <Text>{actionDisabled ? "⏳ ..." : "✅ Done"}</Text>
-                </TouchableOpacity>
-                <Text style={{ color: "#bbb", marginTop: 8 }}>
-                  Automatisch Done in {fmt(reactLeft)}
-                </Text>
-              </View>
-            )}
-
-            {/* Wenn bereits reagiert */}
-            {!isMyTurn && hasReacted && (
-              <Text style={{ color: "#ccc", marginTop: 20 }}>
-                ✅ Reaktion gespeichert
-              </Text>
-            )}
-
-            {/* Zugspieler: warten, bis alle fertig sind */}
-            {isMyTurn && !allDone && (
-              <Text style={{ color: "#aaa", marginTop: 20 }}>
-                ⏳ Warten auf andere Spieler...
-              </Text>
-            )}
-
-            {/* Wenn alle reagiert haben → ablegen */}
-            {isMyTurn && allDone && (
-              <TouchableOpacity
-                onPress={handleDiscard}
-                disabled={actionDisabled}
-                style={{
-                  marginTop: 20,
-                  backgroundColor: "#d98c8c",
-                  opacity: actionOpacity,
-                  ...touchBtn,
-                }}
-              >
-                <Text>
-                  {actionDisabled ? "⏳ ..." : "🗑️ Magiekarte ablegen"}
-                </Text>
-                <Text style={{ color: "#bbb", marginTop: 8 }}>
-                  Automatisch ablegen in {fmt(discardLeft)}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-
-        {/* --- PHASE 3: Abstimmung (Voting) --- */}
-        {lobby.activeEffect && lobby.votingOpen && (
-          <View
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.9)",
-              paddingTop: insets.top,
-              paddingBottom: insets.bottom,
+            canActivateMonster={canActivateMonster}
+            actionDisabled={actionDisabled}
+            reactLeft={reactLeft}
+            fmt={fmt}
+          />
+        ) : (
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingHorizontal: 12,
+              paddingVertical: 16,
             }}
+            bounces={false}
           >
-            <ScrollView
-              contentContainerStyle={{
-                flexGrow: 1,
-                justifyContent: "center",
-                alignItems: "center",
-                padding: 16,
-              }}
-              bounces={false}
-            >
-            <Image
-              source={lobby.activeEffect.card.image}
-              style={previewSize}
-              resizeMode="cover"
-            />
-            <Text style={{ color: "#fff", marginTop: 10, fontSize: 18 }}>
-              {lobby.activeEffect.card.name}
-            </Text>
-            <Text style={{ color: "#fff", marginTop: 10, fontSize: 16 }}>
-              Effekt von {lobby.activeEffect.player} zulassen?
-            </Text>
-
-            <View style={{ flexDirection: "row", marginTop: 20, flexWrap: "wrap", justifyContent: "center" }}>
-              <TouchableOpacity
-                onPress={() => handleVote("ja")}
-                disabled={actionDisabled}
-                style={{
-                  backgroundColor: "#1b5e20",
-                  marginHorizontal: 8,
-                  opacity: actionOpacity,
-                  ...touchBtn,
-                }}
-              >
-                <Text style={{ color: "#fff" }}>
-                  {actionDisabled ? "⏳" : "Ja ✅"}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleVote("nein")}
-                disabled={actionDisabled}
-                style={{
-                  backgroundColor: "#b71c1c",
-                  marginHorizontal: 8,
-                  opacity: actionOpacity,
-                  ...touchBtn,
-                }}
-              >
-                <Text style={{ color: "#fff" }}>
-                  {actionDisabled ? "⏳" : "Nein ❌"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            </ScrollView>
-          </View>
-        )}
-
-        {/* --- Abstimmungsergebnis --- */}
-        {!lobby.votingOpen && lobby.voteResult && (
-          <View
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.85)",
-              paddingTop: insets.top,
-              paddingBottom: insets.bottom,
-            }}
-          >
-            <ScrollView
-              contentContainerStyle={{
-                flexGrow: 1,
-                justifyContent: "center",
-                alignItems: "center",
-                padding: 16,
-              }}
-              bounces={false}
-            >
-            {!!lobby.resolvedEffect?.card && (
-              <Image
-                source={
-                  typeof lobby.resolvedEffect.card.image === "string"
-                    ? { uri: lobby.resolvedEffect.card.image }
-                    : lobby.resolvedEffect.card.image
-                }
-                style={previewSize}
-                resizeMode="cover"
+            {card ? (
+              <TemplateCardRenderer
+                card={card}
+                fallbackType="magic"
+                maxWidth={magicBounds.maxWidth}
+                maxHeight={magicBounds.maxHeight}
               />
+            ) : null}
+
+            {isMyTurn && !lobby.showMagic && (
+              <TouchableOpacity
+                onPress={handleShow}
+                disabled={actionDisabled}
+                style={{
+                  marginTop: 15,
+                  backgroundColor: "#D9C9A3",
+                  opacity: actionOpacity,
+                  ...touchBtn,
+                }}
+              >
+                <Text>{actionDisabled ? "⏳ ..." : "👁️ Zeigen"}</Text>
+              </TouchableOpacity>
             )}
 
-            <Text
-              style={{
-                color: "#fff",
-                fontSize: 20,
-                textAlign: "center",
-                marginTop: 10,
-              }}
-            >
-              {lobby.voteResult}
-            </Text>
+            {lobby.showMagic && !lobby.votingOpen && (
+              <>
+                {!isMyTurn && hasReacted && (
+                  <Text style={{ color: "#ccc", marginTop: 20 }}>
+                    ✅ Reaktion gespeichert
+                  </Text>
+                )}
 
-            <TouchableOpacity
-              onPress={handleCloseVoteResult}
-              disabled={actionDisabled}
-              style={{
-                marginTop: 20,
-                backgroundColor: "#D9C9A3",
-                opacity: actionOpacity,
-                ...touchBtn,
-              }}
-            >
-              <Text style={{ color: "#000" }}>
-                {actionDisabled ? "⏳" : "OK"}
-              </Text>
-            </TouchableOpacity>
-            </ScrollView>
-          </View>
+                {isMyTurn && !allDone && (
+                  <Text style={{ color: "#aaa", marginTop: 20 }}>
+                    ⏳ Warten auf andere Spieler...
+                  </Text>
+                )}
+
+                {isMyTurn && allDone && (
+                  <TouchableOpacity
+                    onPress={handleDiscard}
+                    disabled={actionDisabled}
+                    style={{
+                      marginTop: 20,
+                      backgroundColor: "#d98c8c",
+                      opacity: actionOpacity,
+                      ...touchBtn,
+                    }}
+                  >
+                    <Text>
+                      {actionDisabled ? "⏳ ..." : "🗑️ Magiekarte ablegen"}
+                    </Text>
+                    <Text style={{ color: "#bbb", marginTop: 8 }}>
+                      Automatisch ablegen in {fmt(discardLeft)}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </ScrollView>
         )}
-        </ScrollView>
       </View>
     </Modal>
   );

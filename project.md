@@ -4,10 +4,58 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 
 **Git-Repo:** [maksimscheierman-prof/WodkaO](https://github.com/maksimscheierman-prof/WodkaO)  
 **Projektroot:** `Sauf Viel-Oh/` — Git, App-Code und npm-Befehle liegen hier  
-**npm package name:** `jahw3-app` (technisch, Expo-Projektname unverändert)  
+**Expo:** `name` **WodkaO** · `slug` **wodkao** · `scheme` **wodkao** (`app.json`)  
+**npm package name:** `wodkao` (`package.json`)  
+**Android/iOS package:** `com.wodkao.app` (unverändert)  
 **Display name (UI):** Vod-ka-Oh!  
 **Version:** `1.0.0` (`app.json`, `package.json`)  
 **Phase:** MVP — **Android = APK**, **iPhone = Web/Safari** — siehe [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md)
+
+---
+
+## Rebranding (2026-06-18)
+
+| Feld | Wert |
+|------|------|
+| `expo.name` | **WodkaO** (Android Launcher / Home-Screen) |
+| `expo.slug` | **wodkao** |
+| `expo.scheme` | **wodkao** |
+| npm `name` | **wodkao** |
+| `android.package` / `ios.bundleIdentifier` | **com.wodkao.app** (unverändert) |
+| Markenfarbe (Icon/Splash) | **#B47A35** |
+
+### Branding-Quelle
+
+**Datei:** `assets/branding/a_clean_high_resolution_app_branding_icon_kit.png` (1254×1254 px)
+
+**Export-Skript:** `python scripts/export_branding_assets.py` (Pillow)
+
+| Asset | Ziel | Crop (x, y, w, h) | Export-Größe |
+|-------|------|-------------------|--------------|
+| App Icon | `assets/icon.png` | 65, 40, 520, 520 | 1024×1024 |
+| Adaptive Foreground | `assets/adaptive-icon.png` | 65, 40, 520, 520 | 1024×1024 |
+| Splash / Banner | `assets/splash.png` | 61, 1059, 546, 125 | 1080×240 auf `#B47A35` |
+| Web / Marketing | `assets/web-icon.png` | 674, 108, 220, 220 | 512×512 |
+
+**Android Adaptive Icon:** `foregroundImage` + `backgroundColor: #B47A35`
+
+**UI-Icons** (optional, `assets/ui/`):
+
+| Datei | Crop (x, y, w, h) |
+|-------|-------------------|
+| `play-cards.png` | 812, 780, 90, 90 |
+| `drink-bottle.png` | 982, 773, 90, 90 |
+| `trophy.png` | 1110, 772, 90, 90 |
+| `players.png` | 812, 944, 95, 80 |
+| `settings.png` | 976, 931, 90, 90 |
+| `favorite.png` | 1117, 931, 90, 90 |
+| `rules-beer.png` | 809, 1078, 90, 90 |
+| `help.png` | 975, 1077, 90, 90 |
+| `exit.png` | 1110, 1076, 90, 90 |
+
+`expo-doctor`: **18/18** ✅ (nach Branding-Asset-Export).
+
+> **Hinweis:** EAS `projectId` (`c1742df9-…`) bleibt — Expo-Dashboard-URL kann noch den alten Projektnamen zeigen, bis dort umbenannt.
 
 ---
 
@@ -39,11 +87,9 @@ npm run lint
 
 **Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web
 
-**APK-Status:** ✅ **EAS Build erfolgreich** — letzter Build `1907b4bf` (2026-06-18, Commit `0407a89`, Profil `preview`, **fontSize-0-Fix**) — [APK](https://expo.dev/artifacts/eas/_ZsCR8jrV3fu8w7SS8yiqi_NcuCS7T4D0DClqxpMIJU.apk) · [Build-Log](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/1907b4bf-c7b5-491e-b40f-5562fe8b1111)
+**APK-Status:** 🔄 **Neuer Preview-Build** für Freunde-Test (Profil `preview`, APK) — vorheriger stabiler Build `1907b4bf` (fontSize-0-Fix)
 
-**Online-Multiplayer:** ✅ **Implementiert** (Firestore + Lobby-Code) — siehe [docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md)
-
-**Schnellster Test heute:** **Android:** APK ([BUILD_ANDROID.md](docs/BUILD_ANDROID.md)) — **iPhone:** öffentlicher Web-Link ([BUILD_WEB.md](docs/BUILD_WEB.md))
+**Schnellster Test:** **Android:** neue Preview-APK (EAS `preview`) — **iPhone:** Web/Safari ([BUILD_WEB.md](docs/BUILD_WEB.md), Deploy offen)
 
 ### Plattform-MVP (Freunde-Test)
 
@@ -59,17 +105,17 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ## Aktueller Stand
 
-*Stand: 2026-06-18 (Monster-Modal Android, Web-Header)*
+*Stand: 2026-06-09 (Preview-APK Freunde-Test, Card-Modal stabil)*
 
 ### MVP-Fortschritt (geschätzt)
 
 | Bereich | % | Stand |
 |---------|---|-------|
-| Infrastruktur | **90 %** | Expo, Lint, 8 Test-Scripts, EAS-Config, `.easignore` gefixt |
+| Infrastruktur | **92 %** | Expo, Lint, 14+ Test-Scripts, EAS-Config, Dev Client optional |
 | Lobby | **90 %** | Erstellen, Join, Ready, Start |
 | Multiplayer | **80 %** | Sync + Late Join (Code ✅, Geräte-Test offen) |
-| Gameplay | **85 %** | Phasen, Saufstapel, Voting |
-| Android Build | **75 %** | EAS `preview` APK ✅ (`a762578b`); Geräte-Smoke offen |
+| Gameplay | **88 %** | Phasen, Voting, Monster 1×/Runde, Reaktions-UX mobile |
+| Android Build | **80 %** | EAS `preview` APK — neuer Build für Freunde-Test geplant |
 | iOS / iPhone (Web) | **40 %** | Export ✅, `firebase.json` ✅, `TestAccessGate` ✅; Deploy + Safari-Test offen |
 | Firebase | **75 %** | Schema, Transaction-Join, Rules offen |
 | APK / Cross-Platform Testing | **25 %** | APK gebaut; manueller Multi-Device-Test ausstehend |
@@ -92,6 +138,29 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 - **Fix:** Explizite `Stack.Screen`-Einträge + `export const options` pro Route; `stackScreenOptions.js` (Web: `header: () => null`)
 - **`app/+html.tsx`:** `html/body/#root` margin 0, Hintergrund `#1a0033`, `theme-color`
 - **`app.json`:** `web.backgroundColor: "#1a0033"`
+
+### Neu umgesetzt (Card Modal / Voting / Preview — 2026-06-09)
+
+- **Expo Development Client** eingerichtet (`expo-dev-client`); Freunde-Test nutzt **`preview`-APK** (kein Dev Client nötig)
+- **Android Monster-Modal Crash behoben** — Ursache: `fontSize: 0` / unsichere `letterSpacing`/`lineHeight` unter Android Fabric (nicht Bilddaten)
+- **CardDetailModal** nutzt wieder **Template-Frames** via `TemplateCardRenderer` → `ScaledTemplateCard` → `Card`:
+  - `monster_frame.png` · `magic_frame.png` · `trap_frame.png`
+- **Gemeinsamer Renderer** für Modal, Voting (`VotingPhasePanel`) und Reaktionsphase (`MagicReactionPanel`)
+- **Android-Safe-Modal nur opt-in:** `EXPO_PUBLIC_CARD_MODAL_SAFE_ANDROID=1` (Standard: echte Frames)
+- **Card-Modal-Debug nur opt-in:** `EXPO_PUBLIC_CARD_MODAL_DEBUG=1`
+- **Monster-Effekt 1× pro Runde** nach Ja-Voting (`effectsUsed.monster[playerKey]`)
+- **Mobile Reaktions-UX:** Magic kompakt, Monster/Falle/Done ohne Scrollen
+- **Tests ergänzt:** `test:card-frame`, `test:reaction-layout`, `test:effects-used`, erweiterte Card-Modal-Tests
+- **Rebranding-Assets** exportiert (`assets/icon.png`, Splash, Adaptive Icon)
+- **Expo slug:** `wodkao` (kein `jahw3-app` mehr in `app.json`)
+
+**Aktueller Fokus:** Freunde-Test mit Preview-APK (Android) + iPhone via Web/Safari
+
+**Offene Punkte:**
+- Web/Firebase Hosting für iPhone deployen und testen
+- Multi-Device Smoke-Test (2× Android + Safari)
+- Firestore Rules später härten
+- Web-Banner/Header final prüfen falls noch sichtbar
 
 ### Neu umgesetzt (Monster-Modal Android-Crash — 2026-06-18)
 
@@ -775,7 +844,7 @@ Details: [docs/layout_system.md](docs/layout_system.md), Debug: `EXPO_PUBLIC_LAY
 | Mittel | Aggregiertes `npm test` + optional `typecheck` |
 | ~~Niedrig~~ | ~~Add `eas.json` for release builds~~ — ✅ erledigt |
 | ~~Niedrig~~ | ~~EAS Login + erster APK-Build~~ — ✅ `a762578b` (2026-06-14) |
-| Niedrig | App slug/display name konsistent benennen (`jahw3-app` vs. WodkaO) |
+| ~~Niedrig~~ | ~~App slug/display name konsistent benennen~~ — ✅ Rebranding `wodkao` (2026-06-18) |
 | Niedrig | Legacy `VotePanel.js` aus Repo entfernen |
 
 ---

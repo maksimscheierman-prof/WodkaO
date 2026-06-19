@@ -13,7 +13,7 @@
 | `docs/` | Kanonische Dokumentation |
 | `project.md` | Haupt-Projektdoku |
 
-Der frühere Unterordner **`jahw3-app/`** wurde am 2026-06-13 aufgelöst; Inhalt liegt im Root.
+Der frühere Legacy-Unterordner (ehemals separates Expo-Root) wurde am 2026-06-13 aufgelöst; Inhalt liegt im Root.
 
 ---
 
@@ -42,7 +42,7 @@ git status
 git branch
 ```
 
-`.git` liegt im Projektroot (nicht mehr in `jahw3-app/`).
+`.git` liegt im Projektroot (nicht mehr im Legacy-Unterordner).
 
 ---
 
@@ -50,8 +50,8 @@ git branch
 
 | Feld | Wert | Hinweis |
 |------|------|---------|
-| npm `name` | `jahw3-app` | package.json — Expo-Projektname |
-| Expo `slug` | `jahw3-app` | app.json |
+| npm `name` | `wodkao` | package.json |
+| Expo `slug` | `wodkao` | app.json |
 | Android package | `com.wodkao.app` | app.json |
 | Repo | WodkaO | GitHub |
 
@@ -59,12 +59,12 @@ git branch
 
 ## Migration 2026-06-13
 
-- `.git` von `jahw3-app/` nach Root verschoben
+- `.git` vom Legacy-Unterordner nach Root verschoben
 - App-Code, Config, `docs/`, `.cursor/`, `.vscode/` konsolidiert
 - Alte Root-`package.json` (Delegator) entfernt
 - `npm install` im Root ausgeführt
 
-Falls ein leerer `jahw3-app/`-Ordner noch sichtbar ist: Cursor/Terminal schließen und Ordner manuell löschen (Dateisperre).
+Falls ein leerer Legacy-Ordner noch sichtbar ist: Cursor/Terminal schließen und Ordner manuell löschen (Dateisperre).
 
 ---
 

@@ -133,7 +133,6 @@ scripts/
 
 # Example / legacy
 firestore.rules.example
-jahw3-app/
 
 # Expo template leftovers (app uses src/, not root components/)
 /components/

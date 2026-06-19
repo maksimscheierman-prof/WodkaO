@@ -85,6 +85,9 @@ coverage/
 # Expo shared
 .expo-shared/
 
+# Local export / health-check artifacts
+.tmp-*/
+
 # Logs
 *.log
 logs/

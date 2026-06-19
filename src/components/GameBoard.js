@@ -352,6 +352,8 @@ export default function GameBoard({
               isMe={player.name === (playerName || me?.name)}
               onSelectCard={onSelectCard}
               compact={compact}
+              currentRound={lobby?.round ?? 1}
+              effectsUsed={lobby?.effectsUsed}
             />
           ))}
       </View>

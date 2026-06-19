@@ -4,8 +4,7 @@ const MAX_EVENTS = 40;
 
 function isCardModalDebugEnabled(env = process.env) {
   const flag = (env.EXPO_PUBLIC_CARD_MODAL_DEBUG || "").trim();
-  if (flag === "1" || flag.toLowerCase() === "true") return true;
-  return env.NODE_ENV !== "production" && env.EXPO_PUBLIC_CARD_MODAL_DEBUG !== "0";
+  return flag === "1" || flag.toLowerCase() === "true";
 }
 
 function isAndroidSafeModalForced(env = process.env) {

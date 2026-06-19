@@ -108,9 +108,9 @@ iPhone im WLAN: `http://<PC-IP>:8081`
 
 | Feld | Status | Wert / Anmerkung |
 |------|--------|------------------|
-| `expo.name` | ⚠️ Technisch | `jahw3-app` — App Store Connect kann Anzeigenamen „WodkaO“ setzen |
-| `expo.slug` | ✅ | `jahw3-app` |
-| `expo.icon` | ✅ | `./assets/images/icon.png` |
+| `expo.name` | ✅ | **WodkaO** |
+| `expo.slug` | ✅ | **wodkao** |
+| `expo.icon` | ✅ | `./assets/icon.png` |
 | `expo.ios.bundleIdentifier` | ✅ | **`com.wodkao.app`** (neu, analog Android) |
 | `expo.ios.supportsTablet` | ✅ | `true` |
 | Splash | ✅ | `expo-splash-screen` Plugin, `splash-icon.png` |
@@ -247,7 +247,7 @@ Siehe [MVP_RELEASE_CHECKLIST.md](MVP_RELEASE_CHECKLIST.md#iphone--cross-platform
 | App Store Connect App | ❌ Anzulegen |
 | Erster `eas build --platform ios` | ❌ |
 | TestFlight-Tester | ❌ |
-| `expo.name` vs. Markenname „WodkaO“ | ⚠️ Kosmetisch |
+| `expo.name` vs. Markenname „WodkaO“ | ✅ erledigt |
 
 ---
 

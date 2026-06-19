@@ -214,7 +214,7 @@ export default function Game() {
 
     runAction(async () => {
 
-      await actions.handleActivateEffect(lobbyRef, card, me.name);
+      await actions.handleActivateEffect(lobbyRef, lobby, card, me.name);
 
     });
 
