@@ -34,6 +34,10 @@ const {
   buildElevenLabsUrl,
   buildOpenAiTtsRequestBody,
   OPENAI_TTS_MODEL,
+  resolveHostPlayerId,
+  buildVoiceContextFromLobby,
+  isHostDeviceForVoice,
+  shouldPlayCommentaryVoice,
 } = require("../src/features/commentator/voiceServiceCore.js");
 const {
   DEFAULT_VOICE_PROFILE,
@@ -64,6 +68,18 @@ const {
   resolvePersonalityForComment,
   shouldAttemptPersonalComment,
 } = require("../src/features/commentator/commentatorPersonalityCommentCore.js");
+const {
+  COOLDOWN,
+  buildCommentKeys,
+  createCommentaryDedupeState,
+  getAiDedupeContext,
+  getNeutralFallback,
+  isCommentBlocked,
+  normalizeKey,
+  recordCommentary,
+  resetCommentaryDedupeState,
+  pickCandidate,
+} = require("../src/features/commentator/commentatorDedupeCore.js");
 
 let failed = 0;
 
@@ -467,6 +483,52 @@ assert(
   })
 );
 
+const hostPlayers = [
+  { id: "host-1", name: "Host", isHost: true },
+  { id: "guest-1", name: "Guest", isHost: false },
+];
+assert("resolve host player id", resolveHostPlayerId(hostPlayers) === "host-1");
+assert(
+  "host voice context",
+  isHostDeviceForVoice(
+    buildVoiceContextFromLobby({ players: hostPlayers }, "Host")
+  ) === true
+);
+assert(
+  "non-host voice blocked",
+  isHostDeviceForVoice(
+    buildVoiceContextFromLobby({ players: hostPlayers }, "Guest")
+  ) === false
+);
+assert(
+  "missing host id blocks voice",
+  isHostDeviceForVoice({ currentPlayerId: "a", hostPlayerId: null }) === false
+);
+assert(
+  "explicit isHostDevice false blocks voice",
+  shouldPlayCommentaryVoice(
+    { commentatorEnabled: true, voiceCommentatorEnabled: true, voiceProfile: "openai_onyx" },
+    { isHostDevice: false },
+    { EXPO_PUBLIC_COMMENTATOR_AI_API_KEY: "sk-test" }
+  ) === false
+);
+assert(
+  "host with voice settings allows voice",
+  shouldPlayCommentaryVoice(
+    { commentatorEnabled: true, voiceCommentatorEnabled: true, voiceProfile: "openai_onyx" },
+    buildVoiceContextFromLobby({ players: hostPlayers }, "Host"),
+    { EXPO_PUBLIC_COMMENTATOR_AI_API_KEY: "sk-test" }
+  ) === true
+);
+assert(
+  "non-host with voice settings blocks voice",
+  shouldPlayCommentaryVoice(
+    { commentatorEnabled: true, voiceCommentatorEnabled: true, voiceProfile: "openai_onyx" },
+    buildVoiceContextFromLobby({ players: hostPlayers }, "Guest"),
+    { EXPO_PUBLIC_COMMENTATOR_AI_API_KEY: "sk-test" }
+  ) === false
+);
+
 const awardStats = createSessionStats(["Max", "Laura"]);
 awardStats.players.Max = {
   drinksReceived: 5,
@@ -709,6 +771,163 @@ const personalityPayload = buildAiRequestPayload({
   sessionStats: { players: { Frank: { drinksReceived: 3 } } },
 });
 assert("ai payload includes personality", personalityPayload.personality?.nicknames?.includes("Knarf"));
+
+// --- Dedupe / Anti-Repetition ---
+
+assert("normalizeKey lowercases and strips punctuation", normalizeKey("  Törichtes Begräbnis! ") === "toerichtes begraebnis");
+
+const dedupeState = createCommentaryDedupeState();
+const cardContext = { playerName: "Max", cardName: "Törichtes Begräbnis" };
+const cardKeys = buildCommentKeys({
+  eventType: "CARD_DRAWN",
+  context: cardContext,
+  text: "Max zieht Törichtes Begräbnis — klassiker.",
+  templateId: "Max zieht {cardName} — klassiker.",
+});
+assert("dedupe empty state does not block", isCommentBlocked(dedupeState, cardKeys) === false);
+
+recordCommentary(dedupeState, cardKeys, "Max zieht Törichtes Begräbnis — klassiker.");
+const duplicateTextKeys = buildCommentKeys({
+  eventType: "CARD_DRAWN",
+  context: cardContext,
+  text: "Max zieht Törichtes Begräbnis — klassiker.",
+});
+assert(
+  "exact same text blocked within history",
+  isCommentBlocked(dedupeState, duplicateTextKeys) === "exactText"
+);
+
+const sameCardDifferentText = buildCommentKeys({
+  eventType: "CARD_DRAWN",
+  context: cardContext,
+  text: "Schon wieder Törichtes Begräbnis für Max.",
+});
+assert(
+  "same card blocked within card cooldown",
+  isCommentBlocked(dedupeState, sameCardDifferentText) === "cardKey"
+);
+
+for (let i = 0; i < COOLDOWN.cardKey; i += 1) {
+  recordCommentary(
+    dedupeState,
+    buildCommentKeys({
+      eventType: "ROUND_STARTED",
+      context: { round: i + 2 },
+      text: `Neutrale Runde ${i + 2}.`,
+      templateId: "neutral:round",
+    }),
+    `Neutrale Runde ${i + 2}.`
+  );
+}
+assert(
+  "same card allowed after card cooldown",
+  isCommentBlocked(dedupeState, sameCardDifferentText) === false
+);
+
+const gagState = createCommentaryDedupeState();
+const runningGagKeys = buildCommentKeys({
+  eventType: "PLAYER_PUNISHED",
+  context: { playerName: "Frank" },
+  text: "Frank musste schon wieder trinken. Frank wird nach vielen Shots zu Knarf.",
+  personalityMeta: {
+    playerJokeKey: "frank|frank wird nach vielen shots zu knarf",
+    jokeKey: "Frank wird nach vielen Shots zu Knarf",
+    runningJoke: "Frank wird nach vielen Shots zu Knarf",
+  },
+});
+recordCommentary(gagState, runningGagKeys, runningGagKeys.text);
+const repeatGagKeys = buildCommentKeys({
+  eventType: "PLAYER_PUNISHED",
+  context: { playerName: "Frank" },
+  text: "Frank trinkt — Frank wird nach vielen Shots zu Knarf.",
+  personalityMeta: {
+    playerJokeKey: "frank|frank wird nach vielen shots zu knarf",
+    jokeKey: "Frank wird nach vielen Shots zu Knarf",
+  },
+});
+assert(
+  "same running gag blocked within playerJoke cooldown",
+  isCommentBlocked(gagState, repeatGagKeys) === "playerJokeKey"
+);
+
+const otherPlayerGagKeys = buildCommentKeys({
+  eventType: "PLAYER_PUNISHED",
+  context: { playerName: "Laura" },
+  text: "Laura trinkt — Laura wird nach vielen Shots zu Knarf.",
+  personalityMeta: {
+    playerJokeKey: "laura|laura wird nach vielen shots zu knarf",
+    jokeKey: "Laura wird nach vielen Shots zu Knarf",
+  },
+});
+assert(
+  "different player with different joke allowed",
+  isCommentBlocked(gagState, otherPlayerGagKeys) === false
+);
+
+const aiDedupeCtx = getAiDedupeContext(dedupeState);
+assert("ai dedupe context has recent texts", Array.isArray(aiDedupeCtx.recentCommentaryTexts));
+assert("ai dedupe context has avoid topics", Array.isArray(aiDedupeCtx.avoidTopics));
+
+const aiDedupePayload = buildAiRequestPayload({
+  eventType: "CARD_DRAWN",
+  style: "locker",
+  context: { playerName: "Max", cardName: "Törichtes Begräbnis" },
+  dedupeContext: aiDedupeCtx,
+});
+assert(
+  "ai payload includes dedupe context",
+  Array.isArray(aiDedupePayload.recentCommentaryTexts) &&
+    Array.isArray(aiDedupePayload.avoidTopics)
+);
+
+const aiRetryPayload = buildAiRequestPayload({
+  eventType: "CARD_DRAWN",
+  style: "locker",
+  context: { playerName: "Max" },
+  dedupeContext: aiDedupeCtx,
+  avoidRetry: true,
+});
+assert("ai retry payload sets avoidPreviousJoke", aiRetryPayload.avoidPreviousJoke === true);
+
+const noHistoryCandidate = pickCandidate(
+  "Max zieht eine Karte.",
+  buildCommentKeys({
+    eventType: "CARD_DRAWN",
+    context: { playerName: "Max" },
+    text: "Max zieht eine Karte.",
+  }),
+  null
+);
+assert(
+  "without history any comment is allowed",
+  noHistoryCandidate?.text === "Max zieht eine Karte."
+);
+
+const blockedTemplate = pickCandidate(
+  "Max zieht Törichtes Begräbnis — klassiker.",
+  buildCommentKeys({
+    eventType: "CARD_DRAWN",
+    context: cardContext,
+    text: "Max zieht Törichtes Begräbnis — klassiker.",
+    templateId: "blocked-template",
+  }),
+  dedupeState
+);
+assert(
+  "dedupe blocks repeated card joke candidate",
+  blockedTemplate === null
+);
+
+const neutralFallback = getNeutralFallback("CARD_DRAWN", { playerName: "Max" }, dedupeState, 0.1);
+assert("neutral fallback always yields text", neutralFallback?.text?.length > 0);
+assert(
+  "ai fallback path has neutral when templates blocked",
+  pickCandidate(neutralFallback.text, neutralFallback.keys, dedupeState) != null ||
+    neutralFallback.text.length > 0
+);
+
+resetCommentaryDedupeState(gagState);
+assert("reset dedupe clears history", gagState.comments.length === 0);
 
 const awardStatsFrank = createSessionStats();
 applyEventsToSessionStats(awardStatsFrank, [

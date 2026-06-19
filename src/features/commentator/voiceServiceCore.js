@@ -83,6 +83,50 @@ function buildOpenAiTtsRequestBody(text, voice = "onyx") {
   };
 }
 
+function resolveHostPlayerId(players = []) {
+  if (!Array.isArray(players) || !players.length) return null;
+  const flagged = players.find((p) => p?.isHost && p?.id);
+  if (flagged?.id) return flagged.id;
+  return players[0]?.id ?? null;
+}
+
+function resolvePlayerIdByName(players = [], playerName) {
+  if (!playerName) return null;
+  const match = players.find((p) => p?.name === playerName);
+  return match?.id ?? null;
+}
+
+function buildVoiceContextFromLobby(lobby, playerName) {
+  const players = lobby?.players ?? [];
+  return {
+    players,
+    currentPlayerId: resolvePlayerIdByName(players, playerName),
+    hostPlayerId: resolveHostPlayerId(players),
+  };
+}
+
+function isHostDeviceForVoice(voiceContext = {}) {
+  if (voiceContext.isHostDevice === true) return true;
+  if (voiceContext.isHostDevice === false) return false;
+
+  const hostPlayerId =
+    voiceContext.hostPlayerId ?? resolveHostPlayerId(voiceContext.players);
+  const currentPlayerId = voiceContext.currentPlayerId ?? null;
+
+  if (!hostPlayerId || !currentPlayerId) return false;
+  return currentPlayerId === hostPlayerId;
+}
+
+function shouldPlayCommentaryVoice(settings, voiceContext = {}, env = process.env) {
+  if (!settings?.voiceCommentatorEnabled || settings?.commentatorEnabled === false) {
+    return false;
+  }
+  if (!isHostDeviceForVoice(voiceContext)) return false;
+
+  const profileKey = sanitizeVoiceProfile(settings?.voiceProfile);
+  return isVoiceProfileReady(profileKey, env);
+}
+
 module.exports = {
   MAX_VOICE_TEXT_LENGTH,
   VOICE_REQUEST_TIMEOUT_MS,
@@ -96,4 +140,9 @@ module.exports = {
   buildElevenLabsRequestBody,
   buildOpenAiTtsUrl,
   buildOpenAiTtsRequestBody,
+  resolveHostPlayerId,
+  resolvePlayerIdByName,
+  buildVoiceContextFromLobby,
+  isHostDeviceForVoice,
+  shouldPlayCommentaryVoice,
 };

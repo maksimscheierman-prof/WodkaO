@@ -35,6 +35,7 @@ export async function joinLobbyTransaction(db, lobbyRef, playerName, playerId) {
     transaction.update(lobbyRef, {
       ...result.updates,
       lastActivityAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
 
     const successPrefix = data.status === LOBBY_STATUS.PLAYING ? "ℹ️ " : "✅ ";

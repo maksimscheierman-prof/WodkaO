@@ -339,7 +339,7 @@ Details: [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md)
 - Join während laufendem Spiel: **erlaubt** (Late Join — MVP-Pflicht)
 - **Mehrfachklick-Schutz** via `useAsyncLock` (Lobby + Game + Modals)
 - **Karten-Viewing-Presence** — Denkblase bei Monster-/Fallenkarten (`viewingCard` in Firestore)
-- **Lobby-Ablauf:** Lobbys ohne Aktivität >2h → `status: "expired"`, Join blockiert — siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md)
+- **Lobby-Ablauf:** `waiting` 30 Min / `playing` 2h Inaktivität → `expired`; Host oder letzter Spieler → `finished`; Listener + AI/TTS stoppen — siehe [docs/firebase_cleanup.md](docs/firebase_cleanup.md)
 - **Lint:** 0 Errors, 12 Warnings (`react-hooks/exhaustive-deps`)
 - **Mobile Web:** Responsive Modals, Safe Area, Höhen-Breakpoints (`responsive.js`, `ResponsiveCard.js`)
 

@@ -1,8 +1,15 @@
 # Firebase Lobby Cleanup — WodkaO / Sauf Viel-Oh
 
-*Stand: 2026-06-09*
+*Stand: 2026-06-19*
 
-Lobbys in `lobbies/{code}` laufen nach **2 Stunden ohne Aktivität** ab. Die App blockiert Join und setzt `status: "expired"`. Serverseitiger Cleanup und einmaliges Admin-Löschen sind optional, aber empfohlen.
+Lobbys in `lobbies/{code}` laufen automatisch ab, wenn niemand aktiv ist:
+
+| Status | Timeout |
+|--------|---------|
+| `waiting` | **30 Minuten** ohne Aktivität |
+| `playing` (aktiv) | **2 Stunden** ohne Aktivität |
+
+Die App blockiert Join bei `finished`/`expired`, setzt stale Lobbys auf `status: "expired"` und beendet Firestore-Listener sowie Kommentator-AI/TTS. Serverseitiger Cleanup und einmaliges Admin-Löschen sind optional, aber empfohlen.
 
 ---
 
@@ -12,13 +19,15 @@ Lobbys in `lobbies/{code}` laufen nach **2 Stunden ohne Aktivität** ab. Die App
 |------|-----|--------------|
 | `createdAt` | `serverTimestamp` | Erstellung (neue Lobbys) |
 | `lastActivityAt` | `serverTimestamp` | Letzte Spiel-/Lobby-Aktion |
-| `updatedAt` | `Timestamp` \| number | Optionaler Fallback (Admin-Script) |
+| `updatedAt` | `serverTimestamp` | Mit jeder Aktivitäts-Aktualisierung gesetzt |
 | `expiredAt` | `serverTimestamp` | Optional, beim Ablauf gesetzt |
+| `finishedAt` | `serverTimestamp` | Optional, wenn Host beendet oder letzter Spieler geht |
+| `finishReason` | string | z. B. `host`, `last_player_left` |
 | `status` | string | `waiting` \| `playing` \| `finished` \| `expired` |
 
 **Legacy:** Alte Lobbys haben ggf. nur `createdAt` als Client-`number`. Ablauf nutzt dann `createdAt` als Fallback (`lobbyLifecycleCore.js`).
 
-**Aktivität wird aktualisiert bei:** Lobby erstellen, joinen, starten, verlassen, würfeln, Karte ziehen, Zug beenden (Ablage / Fallen-Zug).
+**Aktivität wird aktualisiert bei:** Lobby erstellen, joinen, ready, starten, verlassen, Karte ziehen, Vote, Effekt aktivieren — **nicht** bei Viewing-Presence, Reactions oder reinen Listener-Updates.
 
 ---
 
@@ -26,10 +35,14 @@ Lobbys in `lobbies/{code}` laufen nach **2 Stunden ohne Aktivität** ab. Die App
 
 | Situation | Verhalten |
 |-----------|-----------|
-| Join abgelaufene Lobby | Fehlermeldung: *„Diese Lobby ist abgelaufen. Bitte erstelle eine neue Lobby.“* |
-| Snapshot in Wartelobby | Redirect zu `/game` nur wenn nicht abgelaufen |
+| Join abgelaufene Lobby | Fehlermeldung: *„Diese Lobby ist abgelaufen…“* |
+| Join beendete Lobby | Fehlermeldung: *„Dieses Spiel ist beendet.“* |
+| Snapshot in Wartelobby | Redirect zu `/game` nur wenn nicht abgelaufen/beendet |
 | Spiel läuft, Lobby abgelaufen | Redirect zu `/lobby` mit Meldung |
-| `status: "expired"` | Nicht joinbar |
+| Spiel läuft, Lobby beendet (`finished`) | Redirect zur Startseite, Listener unsub |
+| `status: "expired"` / `"finished"` | Kein Join, keine AI/TTS, Listener beendet |
+| Host „Beenden“ | `status: "finished"` für alle Clients |
+| Letzter Spieler verlässt | `status: "finished"`, `players: []` |
 
 Code: `src/utils/lobbyLifecycle.js`, `app/lobby.js`, `app/game.js`, `src/utils/gameActions.js`
 

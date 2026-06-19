@@ -14,9 +14,11 @@ import {
   activityPatch,
   ensureJoinableLobby,
   EXPIRED_LOBBY_MESSAGE,
+  FINISHED_LOBBY_MESSAGE,
   handleLeaveLobby,
   isLobbyExpired,
   isLobbyJoinable,
+  isLobbyTerminated,
   LOBBY_STATUS,
   markLobbyExpired,
   withActivity,
@@ -101,6 +103,24 @@ export default function Lobby() {
       const data = snap.data();
       console.log("[LOBBY SNAPSHOT]", JSON.stringify(data, null, 2));
 
+      if (isLobbyTerminated(data)) {
+        await clearSession();
+        setPlayers([]);
+        setLobbyStatus(null);
+        setLobbySnapshot(null);
+        setLobbyId(null);
+        setCreatedCode(null);
+        setMessage({
+          type: "error",
+          text:
+            data.status === LOBBY_STATUS.FINISHED
+              ? FINISHED_LOBBY_MESSAGE
+              : EXPIRED_LOBBY_MESSAGE,
+        });
+        unsub();
+        return;
+      }
+
       if (isLobbyExpired(data)) {
         if (data.status !== LOBBY_STATUS.EXPIRED) {
           await markLobbyExpired(ref).catch((err) =>
@@ -114,6 +134,7 @@ export default function Lobby() {
         setLobbyId(null);
         setCreatedCode(null);
         setMessage({ type: "error", text: EXPIRED_LOBBY_MESSAGE });
+        unsub();
         return;
       }
 
@@ -296,7 +317,7 @@ export default function Lobby() {
         const updatedPlayers = data.players.map((p) =>
           p.name === playerName ? { ...p, ready: !p.ready } : p
         );
-        await updateDoc(ref, { players: updatedPlayers });
+        await updateDoc(ref, withActivity({ players: updatedPlayers }));
       }
     }).catch((error) => {
       console.error("Toggle Ready Error:", error);

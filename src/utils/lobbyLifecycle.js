@@ -1,28 +1,41 @@
 import { serverTimestamp, updateDoc } from "firebase/firestore";
 import {
   EXPIRED_LOBBY_MESSAGE,
+  FINISHED_LOBBY_MESSAGE,
   LOBBY_STATUS,
   isLobbyExpired,
 } from "./lobbyLifecycleCore";
 
-export const FINISHED_LOBBY_MESSAGE = "Dieses Spiel ist beendet.";
+export { FINISHED_LOBBY_MESSAGE } from "./lobbyLifecycleCore";
 
 export {
   EXPIRED_LOBBY_MESSAGE,
   LOBBY_INACTIVITY_MS,
+  LOBBY_PLAYING_INACTIVITY_MS,
+  LOBBY_WAITING_INACTIVITY_MS,
   LOBBY_STATUS,
+  getInactivityLimitMs,
   getLastActivityMillis,
   isLobbyExpired,
   isLobbyJoinable,
+  isLobbyTerminated,
+  shouldRunLobbyBackgroundServices,
   toMillis,
 } from "./lobbyLifecycleCore";
 
 export function activityPatch() {
-  return { lastActivityAt: serverTimestamp() };
+  return {
+    lastActivityAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
 }
 
 export function withActivity(updates = {}) {
-  return { ...updates, lastActivityAt: serverTimestamp() };
+  return {
+    ...updates,
+    lastActivityAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
 }
 
 export async function markLobbyExpired(lobbyRef) {
@@ -31,6 +44,17 @@ export async function markLobbyExpired(lobbyRef) {
     withActivity({
       status: LOBBY_STATUS.EXPIRED,
       expiredAt: serverTimestamp(),
+    })
+  );
+}
+
+export async function markLobbyFinished(lobbyRef, reason = "host") {
+  await updateDoc(
+    lobbyRef,
+    withActivity({
+      status: LOBBY_STATUS.FINISHED,
+      finishedAt: serverTimestamp(),
+      finishReason: reason,
     })
   );
 }
@@ -50,19 +74,33 @@ export async function ensureJoinableLobby(lobbyRef, data) {
 }
 
 export async function handleLeaveLobby(lobbyRef, lobby, playerName) {
-  if (!lobby?.players?.length || !playerName) return;
+  if (!lobby?.players?.length || !playerName) return { lobbyClosed: false };
 
   const remaining = lobby.players.filter((p) => p.name !== playerName);
   const leavingWasHost = lobby.players.some(
     (p) => p.name === playerName && p.isHost
   );
 
+  if (remaining.length === 0) {
+    await updateDoc(
+      lobbyRef,
+      withActivity({
+        players: [],
+        status: LOBBY_STATUS.FINISHED,
+        finishedAt: serverTimestamp(),
+        finishReason: "last_player_left",
+      })
+    );
+    return { lobbyClosed: true };
+  }
+
   const updates = { players: remaining };
-  if (remaining.length > 0 && leavingWasHost) {
+  if (leavingWasHost) {
     updates.players = remaining.map((p, i) =>
       i === 0 ? { ...p, isHost: true } : { ...p, isHost: false }
     );
   }
 
   await updateDoc(lobbyRef, withActivity(updates));
+  return { lobbyClosed: false };
 }

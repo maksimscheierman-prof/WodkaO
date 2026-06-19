@@ -70,7 +70,14 @@ function summarizeSessionStatsForAi(sessionStats, actorName) {
   };
 }
 
-function buildAiRequestPayload({ eventType, style, context = {}, sessionStats = null }) {
+function buildAiRequestPayload({
+  eventType,
+  style,
+  context = {},
+  sessionStats = null,
+  dedupeContext = null,
+  avoidRetry = false,
+}) {
   const payload = {
     eventType,
     style: style || "locker",
@@ -92,6 +99,25 @@ function buildAiRequestPayload({ eventType, style, context = {}, sessionStats = 
     payload.personality = context.personalityForAi;
     payload.personalCommentHint =
       "Nutze Spitznamen/Running Gags nur dezent, respektiere roastLevel und No-Go-Themen.";
+  }
+
+  if (dedupeContext) {
+    if (dedupeContext.recentCommentaryTexts?.length) {
+      payload.recentCommentaryTexts = dedupeContext.recentCommentaryTexts;
+    }
+    if (dedupeContext.recentCommentaryTopics?.length) {
+      payload.recentCommentaryTopics = dedupeContext.recentCommentaryTopics;
+    }
+    if (dedupeContext.avoidTopics?.length) {
+      payload.avoidTopics = dedupeContext.avoidTopics;
+    }
+  }
+
+  if (avoidRetry) {
+    payload.avoidPreviousJoke = true;
+    payload.task =
+      (payload.task ? `${payload.task} ` : "") +
+      "Vermeide Wiederholungen der zuletzt genannten Kartenwitze, Spitznamen oder Running Gags.";
   }
 
   return payload;
@@ -119,6 +145,10 @@ function buildOpenAiMessages(payload) {
       "Optional: leichte persönliche Anspielungen aus personality erlaubt — nur wenn passend und nie verbotene Themen."
     );
   }
+
+  systemParts.push(
+    "Vermeide Wiederholungen. Verwende nicht denselben Kartenwitz, Spitznamenwitz oder Running Gag wie in den letzten Kommentaren."
+  );
 
   const system = systemParts.join(" ");
 

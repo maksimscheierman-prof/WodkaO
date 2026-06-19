@@ -61,7 +61,9 @@ export default function SessionSummary() {
         setIntro(introText);
 
         if (reportSettings.voiceCommentatorEnabled && introText) {
-          speakCommentary(introText, reportSettings).catch(() => {});
+          speakCommentary(introText, reportSettings, {
+            isHostDevice: report.isHostDevice === true,
+          }).catch(() => {});
         }
       } catch (err) {
         console.warn("[SESSION SUMMARY]", err?.message || err);

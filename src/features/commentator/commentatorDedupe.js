@@ -1,0 +1,17 @@
+export {
+  COOLDOWN,
+  HISTORY_LIMIT,
+  NEUTRAL_FALLBACKS,
+  normalizeKey,
+  createCommentaryDedupeState,
+  resetCommentaryDedupeState,
+  buildCommentKeys,
+  isCommentBlocked,
+  recordCommentary,
+  getAiDedupeContext,
+  inferPersonalityMeta,
+  shuffleArray,
+  pickCandidate,
+  getNeutralFallback,
+  formatTemplate,
+} from "./commentatorDedupeCore";

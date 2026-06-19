@@ -7,8 +7,8 @@ import {
   buildOpenAiTtsUrl,
   getElevenLabsApiKey,
   getOpenAiApiKey,
-  isVoiceProfileReady,
   sanitizeVoiceText,
+  shouldPlayCommentaryVoice,
   VOICE_REQUEST_TIMEOUT_MS,
 } from "./voiceServiceCore";
 import {
@@ -122,11 +122,11 @@ async function playAudioUri(uri) {
 
 /**
  * Kommentartext → MP3 (OpenAI oder ElevenLabs) → Cache → Wiedergabe.
- * Fehler blockieren nie — bei Problemen einfach kein Audio.
+ * Nur auf dem Host-Gerät (voiceContext). Fehler blockieren nie.
  */
-export async function speakCommentary(text, settings = {}) {
+export async function speakCommentary(text, settings = {}, voiceContext = {}) {
   try {
-    if (!settings?.voiceCommentatorEnabled || settings?.commentatorEnabled === false) {
+    if (!shouldPlayCommentaryVoice(settings, voiceContext)) {
       return;
     }
 
@@ -134,8 +134,6 @@ export async function speakCommentary(text, settings = {}) {
     if (!spokenText) return;
 
     const profileKey = sanitizeVoiceProfile(settings.voiceProfile);
-    if (!isVoiceProfileReady(profileKey)) return;
-
     const voiceId = resolveVoiceIdForProfile(profileKey);
 
     let uri = await getCachedAudioUri(spokenText, voiceId);
@@ -161,4 +159,8 @@ export async function stopCommentaryVoice() {
   }
 }
 
-export { isVoiceApiConfigured, isVoiceProfileReady } from "./voiceServiceCore";
+export {
+  isVoiceApiConfigured,
+  isVoiceProfileReady,
+  shouldPlayCommentaryVoice,
+} from "./voiceServiceCore";

@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TextInput, TouchableOpacity } from "react-native";
@@ -13,12 +13,20 @@ export const options = hiddenHeaderScreenOptions;
 
 export default function Index() {
   const router = useRouter();
+  const { finishedMessage } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const [playerName, setPlayerName] = useState("");
   const [dbStatus, setDbStatus] = useState("⏳ Firestore wird getestet...");
   const [savedSession, setSavedSession] = useState(null);
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeMessage, setResumeMessage] = useState(null);
+  const [statusMessage, setStatusMessage] = useState(null);
+
+  useEffect(() => {
+    if (finishedMessage) {
+      setStatusMessage(String(finishedMessage));
+    }
+  }, [finishedMessage]);
 
   const buttonStyle = {
     backgroundColor: "#D9C9A3",
@@ -101,6 +109,12 @@ export default function Index() {
       </Text>
 
       <Text style={{ color: "#fff", marginBottom: 10 }}>{dbStatus}</Text>
+
+      {statusMessage ? (
+        <Text style={{ color: "#ffb74d", marginBottom: 10, textAlign: "center", paddingHorizontal: 20 }}>
+          {statusMessage}
+        </Text>
+      ) : null}
 
       {savedSession ? (
         <TouchableOpacity

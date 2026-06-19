@@ -6,7 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Text, useWindowDimensions, View, Alert } from "react-native";
+import { Text, TouchableOpacity, useWindowDimensions, View, Alert } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,10 +47,13 @@ import { handleCloseVoteResult } from "../src/utils/gameActions";
 
 import {
   EXPIRED_LOBBY_MESSAGE,
+  FINISHED_LOBBY_MESSAGE,
   handleLeaveLobby,
   isLobbyExpired,
+  isLobbyTerminated,
   LOBBY_STATUS,
   markLobbyExpired,
+  markLobbyFinished,
 } from "../src/utils/lobbyLifecycle";
 import {
   getCardOpenLog,
@@ -87,7 +90,11 @@ export default function Game() {
 
   const lobbyRef = doc(db, "lobbies", String(lobbyId || ""));
 
-  const { commentary, exportSessionReport, announceGameEnded } = useCommentator(lobby, lobbyId);
+  const { commentary, exportSessionReport, announceGameEnded } = useCommentator(
+    lobby,
+    lobbyId,
+    playerName
+  );
 
   const [selectedCard, setSelectedCard] = useState(null);
   const [joinToast, setJoinToast] = useState(null);
@@ -141,6 +148,7 @@ export default function Game() {
           settings: report.settings,
           commentatorPersonality: report.commentatorPersonality,
           players: report.players,
+          isHostDevice: report.isHostDevice,
           playerName,
           lobbyId,
           savedAt: Date.now(),
@@ -152,6 +160,79 @@ export default function Game() {
       router.replace({ pathname: "/", params: { playerName } });
     });
   }, [actionLock, announceGameEnded, exportSessionReport, lobby, lobbyId, lobbyRef, playerName, router]);
+
+  const performEndLobbyAsHost = useCallback(async () => {
+    if (actionLock.isLocked) return;
+
+    await actionLock.runLocked(async () => {
+      await markLobbyFinished(lobbyRef, "host");
+
+      const report = exportSessionReport?.();
+      const showSessionSummary =
+        report?.settings?.commentatorEnabled &&
+        hasSessionActivity(report.sessionStats);
+
+      if (report?.settings?.commentatorEnabled) {
+        await announceGameEnded?.(report?.sessionStats, {
+          commentatorPersonality:
+            lobby?.commentatorPersonality ?? report?.commentatorPersonality,
+          players: (lobby?.players ?? report?.players ?? [])
+            .filter((p) => p?.id && p?.name)
+            .map((p) => ({ id: p.id, name: p.name })),
+        });
+        await new Promise((resolve) => setTimeout(resolve, COMMENTATOR_GAME_END_LEAVE_MS));
+      }
+
+      await clearSession();
+      if (showSessionSummary) {
+        await saveCommentatorSessionReport({
+          sessionStats: report.sessionStats,
+          settings: report.settings,
+          commentatorPersonality: report.commentatorPersonality,
+          players: report.players,
+          isHostDevice: report.isHostDevice,
+          playerName,
+          lobbyId,
+          savedAt: Date.now(),
+        });
+        router.replace({ pathname: "/session-summary", params: { playerName } });
+        return;
+      }
+
+      router.replace({
+        pathname: "/",
+        params: { playerName, finishedMessage: FINISHED_LOBBY_MESSAGE },
+      });
+    });
+  }, [
+    actionLock,
+    announceGameEnded,
+    exportSessionReport,
+    lobby,
+    lobbyId,
+    lobbyRef,
+    playerName,
+    router,
+  ]);
+
+  const requestEndLobbyAsHost = useCallback(() => {
+    Alert.alert(
+      "Spiel für alle beenden?",
+      "Alle Spieler werden aus der Lobby entfernt.",
+      [
+        { text: "Abbrechen", style: "cancel" },
+        {
+          text: "Beenden",
+          style: "destructive",
+          onPress: () => {
+            performEndLobbyAsHost().catch((err) =>
+              console.error("[HOST END LOBBY]", err)
+            );
+          },
+        },
+      ]
+    );
+  }, [performEndLobbyAsHost]);
 
   const requestLeaveGame = useCallback(() => {
     confirmLeaveGame(performLeaveGame);
@@ -165,7 +246,7 @@ export default function Game() {
 
     (fn) => {
 
-      if (!lobby) return;
+      if (!lobby || isLobbyTerminated(lobby) || isLobbyExpired(lobby)) return;
 
       actionLock.runLocked(fn).catch((err) => {
 
@@ -459,6 +540,16 @@ export default function Game() {
 
   useEffect(() => {
     if (!lobby) return;
+
+    if (lobby.status === LOBBY_STATUS.FINISHED) {
+      clearSession().catch(() => {});
+      router.replace({
+        pathname: "/",
+        params: { playerName, finishedMessage: FINISHED_LOBBY_MESSAGE },
+      });
+      return;
+    }
+
     if (
       lobby.status === LOBBY_STATUS.EXPIRED ||
       isLobbyExpired(lobby)
@@ -519,6 +610,18 @@ export default function Game() {
   }
 
 
+
+  if (isLobbyTerminated(lobby)) {
+    return (
+      <LinearGradient colors={["#1a0033", "#000000"]} style={gameStyles.container}>
+        <Text style={{ color: "#fff", textAlign: "center", padding: 24 }}>
+          {lobby.status === LOBBY_STATUS.FINISHED
+            ? FINISHED_LOBBY_MESSAGE
+            : EXPIRED_LOBBY_MESSAGE}
+        </Text>
+      </LinearGradient>
+    );
+  }
 
   const players = lobby.players || [];
 
@@ -626,6 +729,27 @@ export default function Game() {
               size={compact ? 34 : 36}
               style={{ marginTop: 0, flexShrink: 0 }}
             />
+
+            {me?.isHost ? (
+              <TouchableOpacity
+                onPress={requestEndLobbyAsHost}
+                disabled={actionLock.isLocked}
+                style={{
+                  marginLeft: 8,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: "rgba(183, 28, 28, 0.85)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,120,120,0.55)",
+                  opacity: actionLock.isLocked ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ color: "#fff", fontSize: compact ? 11 : 12, fontWeight: "700" }}>
+                  Beenden
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             <View
               style={{

@@ -1,6 +1,6 @@
 /**
  * Copy into Firebase Cloud Functions (Gen 2) after `firebase init functions`.
- * Schedule: every 60 minutes — expires stale lobbies (does not hard-delete).
+ * Schedule: every 30 minutes — expires stale lobbies (does not hard-delete).
  *
  * See docs/firebase_cleanup.md for full setup.
  */
@@ -11,7 +11,8 @@ const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestor
 
 initializeApp();
 
-const LOBBY_INACTIVITY_MS = 2 * 60 * 60 * 1000;
+const LOBBY_WAITING_INACTIVITY_MS = 30 * 60 * 1000;
+const LOBBY_PLAYING_INACTIVITY_MS = 2 * 60 * 60 * 1000;
 
 function toMillis(value) {
   if (!value) return null;
@@ -22,30 +23,47 @@ function toMillis(value) {
 }
 
 function getLastActivityMillis(data) {
-  return toMillis(data.lastActivityAt) ?? toMillis(data.createdAt);
+  return (
+    toMillis(data.lastActivityAt) ??
+    toMillis(data.updatedAt) ??
+    toMillis(data.createdAt)
+  );
+}
+
+function isStale(data, nowMs) {
+  const last = getLastActivityMillis(data);
+  if (last == null) return false;
+  const limit =
+    data.status === "waiting"
+      ? LOBBY_WAITING_INACTIVITY_MS
+      : LOBBY_PLAYING_INACTIVITY_MS;
+  return nowMs - last > limit;
 }
 
 exports.expireStaleLobbies = onSchedule(
   {
-    schedule: "every 60 minutes",
+    schedule: "every 30 minutes",
     timeZone: "Europe/Berlin",
   },
   async () => {
     const db = getFirestore();
-    const cutoff = Timestamp.fromMillis(Date.now() - LOBBY_INACTIVITY_MS);
+    const nowMs = Date.now();
     const snap = await db
       .collection("lobbies")
       .where("status", "in", ["waiting", "playing"])
-      .where("lastActivityAt", "<", cutoff)
       .get();
 
     const batch = db.batch();
     let count = 0;
 
     snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (!isStale(data, nowMs)) return;
       batch.update(docSnap.ref, {
         status: "expired",
         expiredAt: FieldValue.serverTimestamp(),
+        lastActivityAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       count += 1;
     });

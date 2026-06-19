@@ -345,12 +345,12 @@ export const handleActivateEffect = async (lobbyRef, lobby, card, sourcePlayer) 
   }
 
   try {
-    await updateDoc(lobbyRef, {
+    await updateDoc(lobbyRef, withActivity({
       activeEffect: { player: sourcePlayer, card },
       votes: { ja: [], nein: [] },
       votingOpen: true,
       votingStartedAt: Date.now(),
-    });
+    }));
     console.log(
       `[EFFECT] ${sourcePlayer} aktiviert ${card?.name || card?.title}`
     );
@@ -374,7 +374,7 @@ export const handleVote = async (lobbyRef, lobby, playerName, vote) => {
       ja: vote === "ja" ? [...votes.ja, playerName] : votes.ja,
       nein: vote === "nein" ? [...votes.nein, playerName] : votes.nein,
     };
-    await updateDoc(lobbyRef, { votes: updatedVotes });
+    await updateDoc(lobbyRef, withActivity({ votes: updatedVotes }));
 
     const total = lobby.players?.length || 0;
     if (updatedVotes.ja.length + updatedVotes.nein.length === total) {
@@ -425,7 +425,7 @@ export const handleVote = async (lobbyRef, lobby, playerName, vote) => {
         );
       }
 
-      await updateDoc(lobbyRef, updates);
+      await updateDoc(lobbyRef, withActivity(updates));
     }
   } catch (err) {
     console.error("[VOTE ERROR]", err);

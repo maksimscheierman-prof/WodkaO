@@ -9,6 +9,12 @@ import {
 } from "./commentatorSessionStats";
 import { useCommentatorSettings } from "./useCommentatorSettings";
 import { speakCommentary, stopCommentaryVoice } from "./voiceService";
+import { buildVoiceContextFromLobby, isHostDeviceForVoice } from "./voiceServiceCore";
+import {
+  createCommentaryDedupeState,
+  resetCommentaryDedupeState,
+} from "./commentatorDedupeCore";
+import { shouldRunLobbyBackgroundServices } from "../../utils/lobbyLifecycleCore";
 
 const COMMENTARY_EVENT_TYPES = new Set([
   "GAME_STARTED",
@@ -66,8 +72,11 @@ function playerNamesFromLobby(lobby) {
 
 /**
  * Beobachtet Lobby-Updates und liefert den aktuellen Kommentar-Text.
+ * @param {object|null} lobby
+ * @param {string|null} lobbyId
+ * @param {string|null} playerName — lokaler Spieler für Host-only Voice
  */
-export function useCommentator(lobby, lobbyId = null) {
+export function useCommentator(lobby, lobbyId = null, playerName = null) {
   const { settings } = useCommentatorSettings();
   const [commentary, setCommentary] = useState(null);
   const prevRef = useRef(null);
@@ -79,23 +88,44 @@ export function useCommentator(lobby, lobbyId = null) {
   const lobbyIdRef = useRef(lobbyId);
   const personalityRef = useRef(null);
   const playersRef = useRef([]);
+  const playerNameRef = useRef(playerName);
+  const lobbyRef = useRef(lobby);
   const resolveGenRef = useRef(0);
+  const dedupeStateRef = useRef(createCommentaryDedupeState());
 
   settingsRef.current = settings;
+  playerNameRef.current = playerName;
+  lobbyRef.current = lobby;
 
   personalityRef.current = lobby?.commentatorPersonality ?? null;
   playersRef.current = playersForPersonality(lobby);
+
+  const getVoiceContext = (lobbySnapshot = lobbyRef.current) =>
+    buildVoiceContextFromLobby(lobbySnapshot, playerNameRef.current);
 
   useEffect(() => {
     if (lobbyId && lobbyId !== lobbyIdRef.current) {
       lobbyIdRef.current = lobbyId;
       sessionStatsRef.current = createSessionStats(playerNamesFromLobby(lobby));
+      dedupeStateRef.current = createCommentaryDedupeState();
       prevRef.current = null;
     }
   }, [lobbyId, lobby]);
 
   useEffect(() => {
+    if (!shouldRunLobbyBackgroundServices(lobby)) {
+      resolveGenRef.current += 1;
+      stopCommentaryVoice().catch(() => {});
+      setCommentary(null);
+      queueRef.current = [];
+      showingRef.current = false;
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    }
+  }, [lobby?.status]);
+
+  useEffect(() => {
     if (!settings.commentatorEnabled || !lobby) return;
+    if (!shouldRunLobbyBackgroundServices(lobby)) return;
 
     const prev = prevRef.current;
     const next = snapshotLobby(lobby);
@@ -108,6 +138,7 @@ export function useCommentator(lobby, lobbyId = null) {
 
     if (detected.some((e) => e.type === "GAME_STARTED")) {
       resetSessionStats(sessionStatsRef.current, playerNamesFromLobby(lobby));
+      resetCommentaryDedupeState(dedupeStateRef.current);
     }
 
     applyEventsToSessionStats(sessionStatsRef.current, detected);
@@ -138,6 +169,7 @@ export function useCommentator(lobby, lobbyId = null) {
             sessionStats: stats,
             commentatorPersonality: personalityRef.current,
             players: playersRef.current,
+            dedupeState: dedupeStateRef.current,
           });
 
           if (generation !== resolveGenRef.current) return;
@@ -151,7 +183,7 @@ export function useCommentator(lobby, lobbyId = null) {
           showingRef.current = true;
           const text = queueRef.current.shift();
           setCommentary(text);
-          speakCommentary(text, settingsRef.current).catch(() => {});
+          speakCommentary(text, settingsRef.current, getVoiceContext()).catch(() => {});
 
           if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
           hideTimerRef.current = setTimeout(() => {
@@ -205,11 +237,12 @@ export function useCommentator(lobby, lobbyId = null) {
         commentatorPersonality:
           personalityOverride?.commentatorPersonality ?? personalityRef.current,
         players: personalityOverride?.players ?? playersRef.current,
+        dedupeState: dedupeStateRef.current,
       });
 
       if (text) {
         setCommentary(text);
-        speakCommentary(text, settingsRef.current).catch(() => {});
+        speakCommentary(text, settingsRef.current, getVoiceContext()).catch(() => {});
       }
 
       return text;
@@ -223,12 +256,17 @@ export function useCommentator(lobby, lobbyId = null) {
     return { commentary: null, exportSessionReport: () => null, announceGameEnded: () => null };
   }
 
-  const exportSessionReport = () => ({
-    sessionStats: JSON.parse(JSON.stringify(sessionStatsRef.current)),
-    settings: { ...settingsRef.current },
-    commentatorPersonality: personalityRef.current,
-    players: playersRef.current,
-  });
+  const exportSessionReport = () => {
+    const voiceContext = getVoiceContext();
+    return {
+      sessionStats: JSON.parse(JSON.stringify(sessionStatsRef.current)),
+      settings: { ...settingsRef.current },
+      commentatorPersonality: personalityRef.current,
+      players: playersRef.current,
+      isHostDevice: isHostDeviceForVoice(voiceContext),
+      voiceContext,
+    };
+  };
 
   return { commentary, exportSessionReport, announceGameEnded };
 }
