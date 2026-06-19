@@ -32,6 +32,15 @@ Wichtig: Der Kommentator darf das eigentliche Regelwerk nicht unkontrolliert ver
 | 8 | Group Personality / Inside Jokes | ✅ MVP (Lobby, Firestore, Live-Kommentare) |
 | 9 | Cross-Session Memory | 📋 geplant |
 
+**Zusatzfeatures (2026-06-19):**
+
+| Feature | Status |
+|---------|--------|
+| Host-only Voice (TTS nur auf Host-Gerät) | ✅ |
+| Anti-Repetition / Dedupe | ✅ |
+| OpenAI Onyx (Default) + ElevenLabs Voice-Profile | ✅ optional |
+| Lobby Auto-Cleanup (`waiting` 30m / `playing` 2h) | ✅ clientseitig |
+
 Details zum Code: `src/features/commentator/` · Einstellungen: `/settings/commentator` · Abschlussbildschirm: `/session-summary`
 
 ---
@@ -499,7 +508,40 @@ Zusätzlich umgesetzt (über ursprünglichen MVP hinaus): AI-Kommentator, OpenAI
 
 **Phase 9 (geplant):** Cross-Session Memory, globale Langzeit-Profile.
 
-**Bekannte Lücken:** Kommentar-Queue pausiert bei offenen Modals nicht; automatisches Spiel-Ende (`status: "finished"`) existiert noch nicht.
+**Bekannte Lücken:** Kommentar-Queue pausiert bei offenen Modals nicht; Host kann Lobby per „Beenden“-Button schließen (`status: finished`).
+
+---
+
+## Host-only Voice (2026-06-19)
+
+**Problem:** Wenn Voice aktiv war, spielten alle Geräte TTS gleichzeitig ab.
+
+**Lösung:** Nur das **Host-Gerät** ruft TTS auf und spielt Audio ab. Alle Clients sehen weiterhin die Kommentar-Bubble.
+
+| Aspekt | Verhalten |
+|--------|-----------|
+| Bubble/Text | Alle Geräte |
+| TTS/API | Nur Host (`shouldPlayCommentaryVoice`) |
+| Erkennung | `players[].isHost` + lokaler `playerName` |
+
+Code: `voiceServiceCore.js`, `useCommentator.js`, `app/session-summary.js`
+
+---
+
+## Anti-Repetition / Dedupe (2026-06-19)
+
+Pro Lobby/Session (in-memory, kein Firestore):
+
+| Regel | Cooldown |
+|-------|----------|
+| Exakt gleicher Text | 10 Kommentare |
+| Gleiche Karte | 3 Kommentare |
+| Running Gag / Spitzname | 5 Kommentare |
+| Gleicher Joke/One-Liner | 8 Kommentare |
+
+Fallback-Kette: alternatives Template → AI-Retry mit `avoidTopics` → neutraler lokaler Text.
+
+Code: `commentatorDedupeCore.js`, integriert in `resolveCommentary` und `getCommentary`.
 
 ---
 

@@ -8,7 +8,7 @@ Digitales Kartentrinkspiel / Partyspiel mit Yu-Gi-Oh!-Optik. Multiplayer über F
 **npm package name:** `wodkao` (`package.json`)  
 **Android/iOS package:** `com.wodkao.app` (unverändert)  
 **Display name (UI):** Vod-ka-Oh!  
-**Version:** `1.0.0` (`app.json`, `package.json`)  
+**Version:** `1.0.1` (`app.json`, `package.json`)  
 **Phase:** MVP — **Android = APK**, **iPhone = Web/Safari** — siehe [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md)
 
 ---
@@ -89,9 +89,11 @@ npm run lint
 
 **Projektstack:** Expo ~54 · React Native 0.81 · expo-router · Firebase Firestore · react-native-web · **expo-dev-client**
 
-**APK-Status:** ✅ **Preview-Build für Freunde-Test** — Build `3bb4e88f` (Commit `19f9b5d`, Profil `preview`, APK) — [Install / Download](https://expo.dev/accounts/maxbytes-team/projects/jahw3-app/builds/3bb4e88f-1e3f-4ee6-a8fb-5563990afced)
+**APK-Status:** 🔄 **Preview-Build wird neu erstellt** (Profil `preview`, v1.0.1) — vorheriger Build `3bb4e88f` (Commit `19f9b5d`)
 
-**Schnellster Test:** **Android:** neue Preview-APK (EAS `preview`) — **iPhone:** Web/Safari ([BUILD_WEB.md](docs/BUILD_WEB.md), Deploy offen)
+**Web/iPhone:** Firebase Hosting konfiguriert (`firebase.json` → `dist/`, Projekt `vod-ka-oh`) — Deploy: `npm run deploy:hosting` → `https://vod-ka-oh.web.app`
+
+**Schnellster Test:** **Android:** neue Preview-APK (EAS `preview`) — **iPhone:** Safari → `https://vod-ka-oh.web.app` ([BUILD_WEB.md](docs/BUILD_WEB.md))
 
 ### Plattform-MVP (Freunde-Test)
 
@@ -111,7 +113,7 @@ Beide Seiten nutzen `EXPO_PUBLIC_FIREBASE_*` — APK via EAS Env, Web via `.env`
 
 ## Status
 
-**Projekt stabil.** Development Client funktioniert. Preview-APK (`3bb4e88f`) für den ersten echten Freunde-MVP-Test bereit. Vorbereitung: Android sideload + iPhone Safari (nach Web-Deploy).
+**Projekt stabil.** Development Client funktioniert. Kommentator Phasen 1–8 umgesetzt (Host-only Voice, Dedupe, Lobby-Auto-Cleanup). Preview-APK wird neu gebaut; iPhone über Firebase Hosting (`vod-ka-oh.web.app`).
 
 ## Development Workflow
 
@@ -212,19 +214,28 @@ Details: [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md)
 | 8 | Group Personality / Inside Jokes | ✅ MVP (Lobby, Firestore, Live-Kommentare) |
 | 9 | Cross-Session Memory | 📋 geplant |
 
+**Zusatz (2026-06-19):**
+
+| Feature | Status |
+|---------|--------|
+| Host-only Voice (TTS nur Host-Gerät) | ✅ |
+| Anti-Repetition / Dedupe (lokal + AI + Personality) | ✅ |
+| OpenAI Onyx TTS (Default-Profil `openai_onyx`) + ElevenLabs | ✅ optional |
+| AI-Kommentator (OpenAI `gpt-4o-mini`) | ✅ optional, Standard aus |
+
 **Integration:** `useCommentator` + `CommentatorBubble` in `app/game.js` · Einstellungen `/settings/commentator` (Link von Home) · optional Lobby-Prep `CommentatorLobbyPrepPanel`
 
 **Env (optional):** `EXPO_PUBLIC_COMMENTATOR_AI_*` / `EXPO_PUBLIC_OPENAI_API_KEY` (AI + OpenAI TTS), `EXPO_PUBLIC_ELEVENLABS_*` — siehe `.env.example`
 
-**Tests:** `npm run test:commentator` (99 Assertions)
+**Tests:** `npm run test:commentator` (120+ Assertions), `npm run test:lobby-lifecycle`
 
 ## Offene Punkte
 
-- Preview-APK an Freunde ausrollen / Multi-Device-Smoke-Test
-- iPhone Safari Multiplayer testen (Web-Client)
-- Firebase Hosting deployen + Web testen — [docs/BUILD_WEB.md](docs/BUILD_WEB.md)
-- Web-Header / Banner endgültig prüfen
+- Preview-APK neu bauen und an Freunde ausrollen / Multi-Device-Smoke-Test
+- iPhone Safari Multiplayer testen (Web-Client nach Hosting-Deploy)
 - Firestore Security Rules später härten (nicht Blocker für ersten Freunde-Test)
+- Kommentator: Queue pausiert bei offenen Modals noch nicht
+- Cloud Functions für serverseitigen Lobby-Cleanup (Snippet vorhanden, nicht deployed)
 
 ### MVP-Fortschritt (geschätzt)
 
@@ -235,7 +246,7 @@ Details: [docs/DEBUG_ANDROID_CARD_MODAL.md](docs/DEBUG_ANDROID_CARD_MODAL.md)
 | Multiplayer | **80 %** | Sync + Late Join (Code ✅, Geräte-Test offen) |
 | Gameplay | **88 %** | Phasen, Voting, Monster 1×/Runde, Reaktions-UX mobile |
 | Android Build | **85 %** | EAS `preview` APK ✅ (`3bb4e88f`); Freunde-Test ausstehend |
-| iOS / iPhone (Web) | **40 %** | Export ✅, `firebase.json` ✅, `TestAccessGate` ✅; Deploy + Safari-Test offen |
+| iOS / iPhone (Web) | **55 %** | Export ✅, `firebase.json` ✅, Hosting deploy-fähig; Safari-Test offen |
 | Firebase | **75 %** | Schema, Transaction-Join, Rules offen |
 | APK / Cross-Platform Testing | **35 %** | Preview-APK gebaut; manueller Multi-Device-Test ausstehend |
 
