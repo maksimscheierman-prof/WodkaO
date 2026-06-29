@@ -1,4 +1,5 @@
 import { getCommentary as getLocalCommentary, resolveLocalCommentary } from "./commentatorService";
+import { fetchCommentaryViaCallable } from "./commentatorCallableService";
 import { resolvePersonalityForComment } from "./commentatorPersonalityCommentCore";
 import {
   buildCommentKeys,
@@ -8,87 +9,19 @@ import {
   isCommentBlocked,
   recordCommentary,
 } from "./commentatorDedupeCore";
-import {
-  AI_REQUEST_TIMEOUT_MS,
-  buildAiRequestPayload,
-  buildOpenAiMessages,
-  extractCommentFromResponse,
-  getAiApiKey,
-  getAiEndpointUrl,
-  isAiApiConfigured,
-  isOpenAiEndpoint,
-  sanitizeAiComment,
-} from "./commentatorAiServiceCore";
+import { isAiApiConfigured, sanitizeAiComment } from "./commentatorAiServiceCore";
 
 /**
- * Optionaler AI-Kommentator — Fehler blockieren nie das Spiel.
+ * Optionaler AI-Kommentator via Firebase Callable — Fehler blockieren nie das Spiel.
  * Fallback: lokale Textbausteine via getLocalCommentary().
  */
 
-async function postJson(url, body, headers = {}) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-async function requestOpenAiCommentary(payload) {
-  const url = getAiEndpointUrl();
-  const apiKey = getAiApiKey();
-  if (!url || !apiKey) return null;
-
-  const response = await postJson(
-    url,
-    {
-      model: "gpt-4o-mini",
-      messages: buildOpenAiMessages(payload),
-      max_tokens: 80,
-      temperature: 0.85,
-    },
-    {
-      Authorization: `Bearer ${apiKey}`,
-    }
-  );
-
-  if (!response.ok) return null;
-  const data = await response.json();
-  return sanitizeAiComment(extractCommentFromResponse(data));
-}
-
-async function requestGenericAiCommentary(payload) {
-  const url = getAiEndpointUrl();
-  if (!url) return null;
-
-  const headers = {};
-  const apiKey = getAiApiKey();
-  if (apiKey) {
-    headers.Authorization = `Bearer ${apiKey}`;
-  }
-
-  const response = await postJson(url, payload, headers);
-  if (!response.ok) return null;
-  const data = await response.json();
-  return sanitizeAiComment(extractCommentFromResponse(data));
-}
-
 /**
- * @param {{ eventType: string, style: string, context?: object, sessionStats?: object, dedupeContext?: object, avoidRetry?: boolean }} input
+ * @param {{ lobbyId?: string|null, eventType: string, style: string, context?: object, sessionStats?: object, dedupeContext?: object, avoidRetry?: boolean }} input
  * @returns {Promise<string|null>}
  */
 export async function fetchAiCommentary({
+  lobbyId = null,
   eventType,
   style,
   context,
@@ -99,7 +32,8 @@ export async function fetchAiCommentary({
   if (!isAiApiConfigured()) return null;
 
   try {
-    const payload = buildAiRequestPayload({
+    const raw = await fetchCommentaryViaCallable({
+      lobbyId,
       eventType,
       style,
       context,
@@ -107,12 +41,7 @@ export async function fetchAiCommentary({
       dedupeContext,
       avoidRetry,
     });
-    const url = getAiEndpointUrl();
-
-    if (isOpenAiEndpoint(url)) {
-      return await requestOpenAiCommentary(payload);
-    }
-    return await requestGenericAiCommentary(payload);
+    return sanitizeAiComment(raw);
   } catch (err) {
     console.warn("[COMMENTATOR AI]", err?.message || err);
     return null;
@@ -153,6 +82,7 @@ export async function resolveCommentary({
   sessionStats = null,
   commentatorPersonality = null,
   players = [],
+  lobbyId = null,
   random = Math.random(),
   dedupeState = null,
 }) {
@@ -177,6 +107,7 @@ export async function resolveCommentary({
   try {
     if (settings?.useAiCommentator && settings?.commentatorEnabled !== false) {
       let aiText = await fetchAiCommentary({
+        lobbyId,
         eventType,
         style: settings.commentatorStyle,
         context: aiContext,
@@ -190,6 +121,7 @@ export async function resolveCommentary({
         if (accepted) return accepted;
 
         aiText = await fetchAiCommentary({
+          lobbyId,
           eventType,
           style: settings.commentatorStyle,
           context: aiContext,

@@ -212,20 +212,11 @@ function extractCommentFromResponse(data) {
   return null;
 }
 
-function isOpenAiEndpoint(url) {
-  return /openai\.com/i.test(url || "");
-}
-
-function getAiEndpointUrl(env = process.env) {
-  return (env.EXPO_PUBLIC_COMMENTATOR_AI_URL || "").trim();
-}
-
-function getAiApiKey(env = process.env) {
-  return (env.EXPO_PUBLIC_COMMENTATOR_AI_API_KEY || "").trim();
-}
-
 function isAiApiConfigured(env = process.env) {
-  return !!getAiEndpointUrl(env);
+  if (String(env.EXPO_PUBLIC_COMMENTATOR_CALLABLE || "").trim() === "0") {
+    return false;
+  }
+  return !!String(env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "").trim();
 }
 
 module.exports = {
@@ -237,8 +228,5 @@ module.exports = {
   sanitizeAiComment,
   extractCommentFromResponse,
   isAiCommentSafe,
-  isOpenAiEndpoint,
-  getAiEndpointUrl,
-  getAiApiKey,
   isAiApiConfigured,
 };

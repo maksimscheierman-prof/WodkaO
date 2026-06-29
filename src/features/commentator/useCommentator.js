@@ -8,12 +8,27 @@ import {
   resetSessionStats,
 } from "./commentatorSessionStats";
 import { useCommentatorSettings } from "./useCommentatorSettings";
-import { speakCommentary, stopCommentaryVoice } from "./voiceService";
+import {
+  isCommentaryVoicePlaying,
+  speakCommentary,
+  stopCommentaryVoice,
+} from "./voiceService";
 import { buildVoiceContextFromLobby, isHostDeviceForVoice } from "./voiceServiceCore";
 import {
   createCommentaryDedupeState,
   resetCommentaryDedupeState,
 } from "./commentatorDedupeCore";
+import {
+  canDequeueForOutput,
+  createThrottleState,
+  dequeueEvent,
+  markOutputEnded,
+  markOutputStarted,
+  planEventEnqueue,
+  recordSpokenEvent,
+  resetThrottleState,
+  setVoicePlaying,
+} from "./commentatorThrottle";
 import { shouldRunLobbyBackgroundServices } from "../../utils/lobbyLifecycleCore";
 
 const COMMENTARY_EVENT_TYPES = new Set([
@@ -70,6 +85,10 @@ function playerNamesFromLobby(lobby) {
   return (lobby?.players ?? []).map((p) => p.name).filter(Boolean);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Beobachtet Lobby-Updates und liefert den aktuellen Kommentar-Text.
  * @param {object|null} lobby
@@ -81,7 +100,6 @@ export function useCommentator(lobby, lobbyId = null, playerName = null) {
   const [commentary, setCommentary] = useState(null);
   const prevRef = useRef(null);
   const hideTimerRef = useRef(null);
-  const queueRef = useRef([]);
   const showingRef = useRef(false);
   const settingsRef = useRef(settings);
   const sessionStatsRef = useRef(createSessionStats());
@@ -92,6 +110,9 @@ export function useCommentator(lobby, lobbyId = null, playerName = null) {
   const lobbyRef = useRef(lobby);
   const resolveGenRef = useRef(0);
   const dedupeStateRef = useRef(createCommentaryDedupeState());
+  const throttleRef = useRef(createThrottleState());
+  const queueWorkerRef = useRef(false);
+  const lastSpokenTextRef = useRef(null);
 
   settingsRef.current = settings;
   playerNameRef.current = playerName;
@@ -103,11 +124,141 @@ export function useCommentator(lobby, lobbyId = null, playerName = null) {
   const getVoiceContext = (lobbySnapshot = lobbyRef.current) =>
     buildVoiceContextFromLobby(lobbySnapshot, playerNameRef.current);
 
+  const clearDisplayTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  const finishDisplay = () => {
+    clearDisplayTimer();
+    showingRef.current = false;
+    markOutputEnded(throttleRef.current);
+    setCommentary(null);
+  };
+
+  const processCommentaryQueue = useCallback(async (generation) => {
+    if (queueWorkerRef.current) return;
+    queueWorkerRef.current = true;
+
+    try {
+      while (generation === resolveGenRef.current) {
+        const throttle = throttleRef.current;
+        setVoicePlaying(throttle, isCommentaryVoicePlaying());
+
+        const gate = canDequeueForOutput(throttle, Date.now());
+        if (!gate.ok) {
+          if (gate.reason === "empty") break;
+          if (gate.reason === "cooldown" && gate.waitMs > 0) {
+            await sleep(gate.waitMs);
+            continue;
+          }
+          if (gate.reason === "voice_busy") {
+            await sleep(250);
+            continue;
+          }
+          break;
+        }
+
+        const entry = dequeueEvent(throttle);
+        if (!entry) break;
+
+        if (gate.interrupt) {
+          finishDisplay();
+          await stopCommentaryVoice();
+          setVoicePlaying(throttle, false);
+        }
+
+        markOutputStarted(throttle, entry.priority, Date.now());
+
+        let text = null;
+        try {
+          text = await resolveCommentary({
+            eventType: entry.eventType,
+            context: entry.context,
+            settings: settingsRef.current,
+            sessionStats: sessionStatsRef.current,
+            commentatorPersonality: personalityRef.current,
+            players: playersRef.current,
+            lobbyId: lobbyIdRef.current,
+            dedupeState: dedupeStateRef.current,
+          });
+        } catch (err) {
+          console.warn("[COMMENTATOR RESOLVE]", err?.message || err);
+        }
+
+        if (generation !== resolveGenRef.current) break;
+
+        if (!text) {
+          markOutputEnded(throttle);
+          continue;
+        }
+
+        recordSpokenEvent(throttle, entry.eventType, entry.context, Date.now());
+        lastSpokenTextRef.current = text;
+        showingRef.current = true;
+        setCommentary(text);
+
+        try {
+          await speakCommentary(text, settingsRef.current, getVoiceContext());
+        } catch (err) {
+          console.warn("[COMMENTATOR VOICE]", err?.message || err);
+        } finally {
+          setVoicePlaying(throttle, isCommentaryVoicePlaying());
+        }
+
+        await new Promise((resolve) => {
+          clearDisplayTimer();
+          hideTimerRef.current = setTimeout(() => {
+            finishDisplay();
+            resolve();
+          }, COMMENTATOR_DISPLAY_MS);
+        });
+      }
+    } finally {
+      queueWorkerRef.current = false;
+      if (
+        throttleRef.current.queue.length > 0 &&
+        generation === resolveGenRef.current
+      ) {
+        processCommentaryQueue(generation);
+      }
+    }
+  }, []);
+
+  const enqueueCommentaryEvents = useCallback(
+    (events, generation) => {
+      const throttle = throttleRef.current;
+      let needsInterrupt = false;
+
+      for (const { type, context } of events) {
+        const plan = planEventEnqueue(throttle, {
+          eventType: type,
+          context,
+        });
+        if (plan.interrupt) {
+          needsInterrupt = true;
+        }
+      }
+
+      if (needsInterrupt) {
+        finishDisplay();
+        stopCommentaryVoice().catch(() => {});
+        setVoicePlaying(throttle, false);
+      }
+
+      processCommentaryQueue(generation);
+    },
+    [processCommentaryQueue]
+  );
+
   useEffect(() => {
     if (lobbyId && lobbyId !== lobbyIdRef.current) {
       lobbyIdRef.current = lobbyId;
       sessionStatsRef.current = createSessionStats(playerNamesFromLobby(lobby));
       dedupeStateRef.current = createCommentaryDedupeState();
+      resetThrottleState(throttleRef.current);
       prevRef.current = null;
     }
   }, [lobbyId, lobby]);
@@ -116,10 +267,9 @@ export function useCommentator(lobby, lobbyId = null, playerName = null) {
     if (!shouldRunLobbyBackgroundServices(lobby)) {
       resolveGenRef.current += 1;
       stopCommentaryVoice().catch(() => {});
-      setCommentary(null);
-      queueRef.current = [];
-      showingRef.current = false;
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      finishDisplay();
+      resetThrottleState(throttleRef.current);
+      queueWorkerRef.current = false;
     }
   }, [lobby?.status]);
 
@@ -139,16 +289,17 @@ export function useCommentator(lobby, lobbyId = null, playerName = null) {
     if (detected.some((e) => e.type === "GAME_STARTED")) {
       resetSessionStats(sessionStatsRef.current, playerNamesFromLobby(lobby));
       resetCommentaryDedupeState(dedupeStateRef.current);
+      resetThrottleState(throttleRef.current);
     }
 
     applyEventsToSessionStats(sessionStatsRef.current, detected);
 
-    const activeSettings = settingsRef.current;
-    const stats = sessionStatsRef.current;
     const hasEffectSelected = detected.some((e) => e.type === "EFFECT_SELECTED");
     const commentaryEvents = detected.filter(({ type, context }) => {
       if (!COMMENTARY_EVENT_TYPES.has(type)) return false;
-      if (type === "PLAYER_PUNISHED" && context.reason === "vote_rejected") return false;
+      if (type === "PLAYER_PUNISHED" && context.reason === "vote_rejected") {
+        return false;
+      }
       if (type === "VOTE_STARTED" && hasEffectSelected) return false;
       return true;
     });
@@ -156,101 +307,59 @@ export function useCommentator(lobby, lobbyId = null, playerName = null) {
     if (!commentaryEvents.length) return;
 
     const generation = ++resolveGenRef.current;
-
-    (async () => {
-      try {
-        for (const { type, context } of commentaryEvents) {
-          if (generation !== resolveGenRef.current) return;
-
-          const text = await resolveCommentary({
-            eventType: type,
-            context,
-            settings: activeSettings,
-            sessionStats: stats,
-            commentatorPersonality: personalityRef.current,
-            players: playersRef.current,
-            dedupeState: dedupeStateRef.current,
-          });
-
-          if (generation !== resolveGenRef.current) return;
-          if (text) queueRef.current.push(text);
-        }
-
-        if (generation !== resolveGenRef.current) return;
-
-        const showNext = () => {
-          if (showingRef.current || !queueRef.current.length) return;
-          showingRef.current = true;
-          const text = queueRef.current.shift();
-          setCommentary(text);
-          speakCommentary(text, settingsRef.current, getVoiceContext()).catch(() => {});
-
-          if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-          hideTimerRef.current = setTimeout(() => {
-            showingRef.current = false;
-            if (queueRef.current.length) {
-              showNext();
-            } else {
-              setCommentary(null);
-            }
-          }, COMMENTATOR_DISPLAY_MS);
-        };
-
-        showNext();
-      } catch (err) {
-        console.warn("[COMMENTATOR RESOLVE]", err?.message || err);
-      }
-    })();
-  }, [lobby, settings.commentatorEnabled, settings.useAiCommentator]);
+    enqueueCommentaryEvents(commentaryEvents, generation);
+  }, [lobby, settings.commentatorEnabled, settings.useAiCommentator, enqueueCommentaryEvents]);
 
   useEffect(() => {
     if (!settings.commentatorEnabled || !settings.voiceCommentatorEnabled) {
       stopCommentaryVoice().catch(() => {});
+      setVoicePlaying(throttleRef.current, false);
     }
   }, [settings.commentatorEnabled, settings.voiceCommentatorEnabled]);
 
   useEffect(() => {
     if (!settings.commentatorEnabled) {
-      setCommentary(null);
-      queueRef.current = [];
-      showingRef.current = false;
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      finishDisplay();
+      resetThrottleState(throttleRef.current);
+      queueWorkerRef.current = false;
     }
   }, [settings.commentatorEnabled]);
 
   useEffect(() => {
     return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      clearDisplayTimer();
       stopCommentaryVoice().catch(() => {});
     };
   }, []);
 
-  const announceGameEnded = useCallback(async (sessionStats = null, personalityOverride = null) => {
-    if (!settingsRef.current.commentatorEnabled) return null;
+  const announceGameEnded = useCallback(
+    async (sessionStats = null, personalityOverride = null) => {
+      if (!settingsRef.current.commentatorEnabled) return null;
 
-    try {
-      const text = await resolveCommentary({
-        eventType: "GAME_ENDED",
-        context: {},
-        settings: settingsRef.current,
-        sessionStats: sessionStats ?? sessionStatsRef.current,
-        commentatorPersonality:
-          personalityOverride?.commentatorPersonality ?? personalityRef.current,
-        players: personalityOverride?.players ?? playersRef.current,
-        dedupeState: dedupeStateRef.current,
-      });
-
-      if (text) {
-        setCommentary(text);
-        speakCommentary(text, settingsRef.current, getVoiceContext()).catch(() => {});
+      if (sessionStats) {
+        sessionStatsRef.current = sessionStats;
+      }
+      if (personalityOverride?.commentatorPersonality) {
+        personalityRef.current = personalityOverride.commentatorPersonality;
+      }
+      if (personalityOverride?.players) {
+        playersRef.current = personalityOverride.players;
       }
 
-      return text;
-    } catch (err) {
-      console.warn("[COMMENTATOR GAME ENDED]", err?.message || err);
-      return null;
-    }
-  }, []);
+      const generation = ++resolveGenRef.current;
+      enqueueCommentaryEvents([{ type: "GAME_ENDED", context: {} }], generation);
+
+      while (
+        generation === resolveGenRef.current &&
+        (queueWorkerRef.current || throttleRef.current.queue.length > 0)
+      ) {
+        await sleep(50);
+      }
+
+      return lastSpokenTextRef.current;
+    },
+    [enqueueCommentaryEvents]
+  );
 
   if (!settings.commentatorEnabled) {
     return { commentary: null, exportSessionReport: () => null, announceGameEnded: () => null };

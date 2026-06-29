@@ -19,6 +19,11 @@ import {
 
 let currentSound = null;
 let audioModeReady = false;
+let voicePlaying = false;
+
+export function isCommentaryVoicePlaying() {
+  return voicePlaying;
+}
 
 async function ensureAudioMode() {
   if (audioModeReady) return;
@@ -35,7 +40,10 @@ async function ensureAudioMode() {
 }
 
 async function stopCurrentSound() {
-  if (!currentSound) return;
+  if (!currentSound) {
+    voicePlaying = false;
+    return;
+  }
   try {
     await currentSound.stopAsync();
     await currentSound.unloadAsync();
@@ -43,6 +51,7 @@ async function stopCurrentSound() {
     /* ignore */
   }
   currentSound = null;
+  voicePlaying = false;
 }
 
 async function fetchMp3Buffer(url, options = {}) {
@@ -113,10 +122,16 @@ async function playAudioUri(uri) {
   );
 
   currentSound = sound;
-  sound.setOnPlaybackStatusUpdate((status) => {
-    if (status.isLoaded && status.didJustFinish) {
-      stopCurrentSound().catch(() => {});
-    }
+  voicePlaying = true;
+
+  return new Promise((resolve) => {
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        voicePlaying = false;
+        stopCurrentSound().catch(() => {});
+        resolve();
+      }
+    });
   });
 }
 
@@ -147,6 +162,7 @@ export async function speakCommentary(text, settings = {}, voiceContext = {}) {
 
     await playAudioUri(uri);
   } catch (err) {
+    voicePlaying = false;
     console.warn("[COMMENTATOR VOICE]", err?.message || err);
   }
 }

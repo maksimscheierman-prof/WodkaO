@@ -1,0 +1,16 @@
+export {
+  MIN_OUTPUT_GAP_MS,
+  EVENT_DEDUPE_MS,
+  MAX_QUEUE_LENGTH,
+  createThrottleState,
+  resetThrottleState,
+  planEventEnqueue,
+  canDequeueForOutput,
+  dequeueEvent,
+  markOutputStarted,
+  markOutputEnded,
+  setVoicePlaying,
+  recordSpokenEvent,
+  getEventPriority,
+  buildEventKey,
+} from "./commentatorThrottleCore";

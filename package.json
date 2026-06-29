@@ -37,6 +37,9 @@
     "test:test-access": "node ./scripts/test_test_access.js",
     "test:table-layout": "node ./scripts/test_table_layout.js",
     "test:commentator": "node ./scripts/test_commentator.js",
+    "test:commentator-ai-server": "node ./scripts/test_commentator_ai_server.js",
+    "test:commentator-throttle": "node ./scripts/test_commentator_throttle.js",
+    "test:commentator-callable": "node ./scripts/test_commentator_callable.js",
     "test:voting": "node ./scripts/test_voting.js",
     "cleanup:lobbies": "node ./scripts/cleanup_old_lobbies.js",
     "cleanup-lobbies": "node ./scripts/cleanup_old_lobbies.js"
