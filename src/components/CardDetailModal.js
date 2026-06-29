@@ -42,6 +42,7 @@ const closeBtnStyle = {
 
 function CardModalBody({ card, displayType, useLegacySafe, maxWidth, maxHeight }) {
   const frameType = resolveCardFrameType(displayType, "monster");
+  const cardKey = `${card?.name ?? ""}|${card?.image?.uri ?? ""}`;
   recordCardModalDebug("modal_body_render_start", {
     name: card?.name,
     type: displayType,
@@ -52,16 +53,22 @@ function CardModalBody({ card, displayType, useLegacySafe, maxWidth, maxHeight }
 
   if (useLegacySafe) {
     return (
-      <AndroidSafeCardDetail normalized={card} displayType={displayType} />
+      <AndroidSafeCardDetail
+        key={cardKey}
+        normalized={card}
+        displayType={displayType}
+      />
     );
   }
 
   return (
     <TemplateCardRenderer
+      key={cardKey}
       card={card}
       fallbackType={displayType}
       maxWidth={maxWidth}
       maxHeight={maxHeight}
+      modalArtwork
     />
   );
 }

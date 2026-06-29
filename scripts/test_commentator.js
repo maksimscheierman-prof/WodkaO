@@ -56,6 +56,8 @@ const {
   collectFriendInputsAboutPlayer,
   mergeConsentPatch,
   mergeFriendInputPatch,
+  getFriendInputFirestorePath,
+  getConsentFirestorePath,
   parseNoGoTopicsInput,
   sanitizeFriendInput,
   sanitizePlayerCommentatorSettings,
@@ -771,6 +773,29 @@ const personalityPayload = buildAiRequestPayload({
   sessionStats: { players: { Frank: { drinksReceived: 3 } } },
 });
 assert("ai payload includes personality", personalityPayload.personality?.nicknames?.includes("Knarf"));
+
+assert(
+  "friend input firestore path is per author-target",
+  getFriendInputFirestorePath("author1", "target2") ===
+    "commentatorPersonality.friendInputsByAuthor.author1.target2"
+);
+assert(
+  "consent firestore path is per player",
+  getConsentFirestorePath("player-x") ===
+    "commentatorPersonality.consentByPlayerId.player-x"
+);
+
+const authorA = mergeFriendInputPatch(null, "a1", "t1", {
+  suggestedNickname: "NickA",
+});
+const authorB = mergeFriendInputPatch(authorA, "b1", "t2", {
+  runningJoke: "GagB",
+});
+assert(
+  "merge friend inputs preserves different authors",
+  authorB.friendInputsByAuthor.a1.t1.suggestedNickname === "NickA" &&
+    authorB.friendInputsByAuthor.b1.t2.runningJoke === "GagB"
+);
 
 // --- Dedupe / Anti-Repetition ---
 

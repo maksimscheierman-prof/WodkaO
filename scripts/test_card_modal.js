@@ -4,6 +4,9 @@
  * Run: npm run test:card-modal
  */
 
+const fs = require("fs");
+const path = require("path");
+
 const {
   normalizeCardForDisplay,
   getCardOpenLog,
@@ -145,6 +148,20 @@ assert(
 );
 assert("voting activeEffect has atk", votingMonster.atk === 5);
 assert("voting activeEffect has def", votingMonster.def === 3);
+
+const cardDetailSrc = fs.readFileSync(
+  path.join(__dirname, "../src/components/CardDetailModal.js"),
+  "utf8"
+);
+const cardSrc = fs.readFileSync(
+  path.join(__dirname, "../src/components/Card.js"),
+  "utf8"
+);
+assert("CardDetailModal passes modalArtwork", cardDetailSrc.includes("modalArtwork"));
+assert(
+  "Card modal artwork avoids card back placeholder",
+  cardSrc.includes("modalArtwork ? undefined : CARD_BACK")
+);
 
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed`);

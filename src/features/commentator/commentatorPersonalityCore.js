@@ -260,6 +260,16 @@ function mergeFriendInputPatch(
   };
 }
 
+/** Firestore dot-path for a single author→target friend input (atomic update). */
+function getFriendInputFirestorePath(authorPlayerId, targetPlayerId) {
+  return `commentatorPersonality.friendInputsByAuthor.${authorPlayerId}.${targetPlayerId}`;
+}
+
+/** Firestore dot-path for one player's consent settings (atomic update). */
+function getConsentFirestorePath(playerId) {
+  return `commentatorPersonality.consentByPlayerId.${playerId}`;
+}
+
 module.exports = {
   ROAST_LEVELS,
   ROAST_LEVEL_LABELS,
@@ -281,5 +291,7 @@ module.exports = {
   collectFriendInputsAboutPlayer,
   mergeConsentPatch,
   mergeFriendInputPatch,
+  getFriendInputFirestorePath,
+  getConsentFirestorePath,
   emptyFriendInput,
 };

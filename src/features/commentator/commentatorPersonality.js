@@ -1,8 +1,12 @@
-import { updateDoc } from "firebase/firestore";
+import { deleteField, updateDoc } from "firebase/firestore";
 import { withActivity } from "../../utils/lobbyLifecycle";
 import {
+  getConsentFirestorePath,
+  getFriendInputFirestorePath,
   mergeConsentPatch,
   mergeFriendInputPatch,
+  sanitizeFriendInput,
+  sanitizePlayerCommentatorSettings,
 } from "./commentatorPersonalityCore";
 
 export {
@@ -14,33 +18,52 @@ export {
   getConsentForPlayer,
   getDefaultConsentSettings,
   getFriendInputForAuthorTarget,
+  getConsentFirestorePath,
+  getFriendInputFirestorePath,
   parseNoGoTopicsInput,
   sanitizeFriendInput,
   sanitizePlayerCommentatorSettings,
 } from "./commentatorPersonalityCore";
 
-export async function savePlayerCommentatorConsent(lobbyRef, lobbyData, playerId, rawConsent) {
-  const personality = mergeConsentPatch(lobbyData?.commentatorPersonality, playerId, rawConsent);
-  if (!personality) return null;
+export async function savePlayerCommentatorConsent(
+  lobbyRef,
+  _lobbyData,
+  playerId,
+  rawConsent
+) {
+  const consent = sanitizePlayerCommentatorSettings(playerId, rawConsent);
+  if (!consent) return null;
 
-  await updateDoc(lobbyRef, withActivity({ commentatorPersonality: personality }));
-  return personality;
+  await updateDoc(
+    lobbyRef,
+    withActivity({
+      [getConsentFirestorePath(playerId)]: consent,
+    })
+  );
+  return mergeConsentPatch(_lobbyData?.commentatorPersonality, playerId, rawConsent);
 }
 
 export async function saveFriendInputForTarget(
   lobbyRef,
-  lobbyData,
+  _lobbyData,
   authorPlayerId,
   targetPlayerId,
   rawInput
 ) {
-  const personality = mergeFriendInputPatch(
-    lobbyData?.commentatorPersonality,
+  const input = sanitizeFriendInput(authorPlayerId, targetPlayerId, rawInput);
+  const path = getFriendInputFirestorePath(authorPlayerId, targetPlayerId);
+
+  await updateDoc(
+    lobbyRef,
+    withActivity({
+      [path]: input ?? deleteField(),
+    })
+  );
+
+  return mergeFriendInputPatch(
+    _lobbyData?.commentatorPersonality,
     authorPlayerId,
     targetPlayerId,
     rawInput
   );
-
-  await updateDoc(lobbyRef, withActivity({ commentatorPersonality: personality }));
-  return personality;
 }

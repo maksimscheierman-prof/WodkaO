@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Image, ImageBackground, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Image, ImageBackground, StyleSheet, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import AutoFontSizeText from "../components/AutoFontSizeText";
 import SafeText from "../components/SafeText";
@@ -22,6 +22,33 @@ const FRAME_SOURCES = {
   trap: require("../../assets/images/templates/trap_frame.png"),
 };
 
+function CardArtwork({ imageSource, fillStyle, onError, onLoad, modalArtwork }) {
+  if (typeof imageSource === "number") {
+    return (
+      <Image
+        source={imageSource}
+        style={fillStyle}
+        resizeMode="cover"
+        onError={onError}
+        onLoad={onLoad}
+      />
+    );
+  }
+
+  return (
+    <ExpoImage
+      source={imageSource}
+      style={fillStyle}
+      contentFit="cover"
+      placeholder={modalArtwork ? undefined : CARD_BACK}
+      placeholderContentFit={modalArtwork ? undefined : "cover"}
+      transition={0}
+      onError={onError}
+      onLoad={onLoad}
+    />
+  );
+}
+
 export default function Card({
   title = "Mystischer-Raum-Cocktail",
   description = "Wähle drei Getränke deiner Wahl und mixe sie zu einem Cocktail. Wähle zwei Mitspieler, die den Cocktail innerhalb von drei Runden auftrinken müssen.",
@@ -32,8 +59,10 @@ export default function Card({
   monsterType = "[Effekt]",
   image,
   layoutScale = 1,
+  modalArtwork = false,
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const styles = useMemo(
     () => buildScaledCardStyles(layoutScale),
     [layoutScale]
@@ -48,13 +77,32 @@ export default function Card({
   const safeTitle = title || "Unbekannte Karte";
   const safeDescription = description || "Kein Effekttext verfügbar.";
   const primarySource = normalizeCardImage(image ?? DEFAULT_CARD_IMAGE);
+  const imageUriKey =
+    typeof primarySource === "number"
+      ? `asset:${primarySource}`
+      : primarySource?.uri ?? "default";
+
+  useEffect(() => {
+    setImageFailed(false);
+    setImageLoaded(typeof primarySource === "number");
+  }, [imageUriKey, primarySource]);
+
   const imageSource = imageFailed
-    ? CARD_BACK
+    ? modalArtwork
+      ? DEFAULT_CARD_IMAGE
+      : CARD_BACK
     : typeof primarySource === "number"
       ? primarySource
       : primarySource?.uri
         ? { uri: primarySource.uri }
         : DEFAULT_CARD_IMAGE;
+
+  const showArtworkPlaceholder =
+    modalArtwork &&
+    !imageLoaded &&
+    !imageFailed &&
+    typeof imageSource === "object" &&
+    !!imageSource?.uri;
 
   const starsRaw = parseInt(stars, 10);
   const safeStars = Number.isFinite(starsRaw)
@@ -110,24 +158,23 @@ export default function Card({
         {currentLabel}
       </SafeText>
 
-      {typeof imageSource === "number" ? (
-        <Image
-          source={imageSource}
-          style={styles.imageBox}
-          resizeMode="cover"
+      <View style={styles.imageBox} collapsable={false}>
+        {showArtworkPlaceholder ? (
+          <View
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: "#1a1028" },
+            ]}
+          />
+        ) : null}
+        <CardArtwork
+          imageSource={imageSource}
+          fillStyle={StyleSheet.absoluteFill}
+          modalArtwork={modalArtwork}
           onError={handleImageError}
+          onLoad={() => setImageLoaded(true)}
         />
-      ) : (
-        <ExpoImage
-          source={imageSource}
-          style={styles.imageBox}
-          contentFit="cover"
-          placeholder={CARD_BACK}
-          placeholderContentFit="cover"
-          transition={0}
-          onError={handleImageError}
-        />
-      )}
+      </View>
 
       <SafeText component="Card.description" style={styles.monsterDescription}>
         {safeDescription}

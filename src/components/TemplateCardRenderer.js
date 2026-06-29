@@ -12,6 +12,7 @@ export default function TemplateCardRenderer({
   fallbackType = "magic",
   maxWidth,
   maxHeight,
+  modalArtwork = false,
 }) {
   const normalized = useMemo(
     () => normalizeCardForDisplay(card, { defaultType: fallbackType }),
@@ -29,6 +30,7 @@ export default function TemplateCardRenderer({
     <ScaledTemplateCard
       maxWidth={maxWidth}
       maxHeight={maxHeight}
+      modalArtwork={modalArtwork}
       title={normalized.name}
       description={normalized.effect}
       image={normalized.image}

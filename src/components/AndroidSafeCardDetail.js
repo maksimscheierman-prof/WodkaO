@@ -4,8 +4,6 @@ import { DEFAULT_CARD_IMAGE } from "../utils/cardDisplay";
 import { recordCardModalDebug } from "../utils/cardModalDebug";
 import SafeText from "./SafeText";
 
-const CARD_BACK = require("../../assets/images/card_back.png");
-
 /**
  * Android modal card renderer — no ImageBackground / AutoFontSizeText / star layers.
  * Used to avoid native crashes from nested image views in release APKs.
@@ -45,9 +43,7 @@ export default function AndroidSafeCardDetail({ normalized, displayType }) {
           backgroundColor: "#000",
         }}
         contentFit="contain"
-        placeholder={CARD_BACK}
-        placeholderContentFit="cover"
-        transition={0}
+        transition={200}
         onError={(err) =>
           recordCardModalDebug("android_safe_image_error", {
             name: normalized?.name,

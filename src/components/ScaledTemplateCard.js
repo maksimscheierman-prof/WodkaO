@@ -7,6 +7,7 @@ import Card from "./Card";
 export default function ScaledTemplateCard({
   maxWidth,
   maxHeight,
+  modalArtwork = false,
   title,
   description,
   image,
@@ -42,6 +43,7 @@ export default function ScaledTemplateCard({
         stars={stars}
         monsterType={monsterType}
         layoutScale={scale}
+        modalArtwork={modalArtwork}
       />
     </View>
   );
